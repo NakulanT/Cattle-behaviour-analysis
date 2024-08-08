@@ -24,7 +24,8 @@ os.environ["KMP_INIT_AT_FORK"] = "FALSE"
 
 # Load your YOLO models
 behaviour_model = YOLO("behaviour_detection_model.pt")
-shape_model = YOLO("shape_detection_model.pt")
+shape_model = YOLO("C:/Users/91638/Desktop/shape_detection_model.pt")
+
 
 # Function to perform prediction and display results
 behaviours = {
