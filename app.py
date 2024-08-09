@@ -15,8 +15,8 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["KMP_INIT_AT_FORK"] = "FALSE"
 
 # Set up YOLO models
-behaviour_model = YOLO("behaviour_detection_model.pt")
-shape_model = YOLO("shape_detection_model.pt")
+behaviour_model = YOLO(os.path.join("models", "behaviour_detection_model.pt"))
+shape_model = YOLO(os.path.join("models", "shape_detection_model.pt"))
 
 behaviours = {0: "Lying down", 1: "Eating", 2: "Standing"}
 
@@ -67,7 +67,11 @@ def process_image(image_path):
             shape_classes = shape_finder(detected_area, x_offset, y_offset, result.orig_img.shape)
 
             behavior_name = behaviours.get(int(behavior_class_id.item()), "Unknown")
-            result_str = f"Behavior: {behavior_name} (ID: {behavior_class_id.item()}) has the following shape classes: {shape_classes}"
+            # result_str = f"Behavior: {behavior_name} (ID: {behavior_class_id.item()}) has the following shape classes: {shape_classes}"
+            if shape_classes:
+                result_str = f"{shape_classes[0]} : This ID cattle is {(behavior_name).lower()}."
+            else:
+                result_str = f"Unidentified cow's behavior: {behavior_name}."
             results.append(result_str)
 
     return results
