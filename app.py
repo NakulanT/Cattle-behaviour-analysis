@@ -5,6 +5,8 @@ import torch
 import numpy as np
 from ultralytics import YOLO
 import tempfile
+from collections import defaultdict
+import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 
@@ -20,7 +22,6 @@ shape_model = YOLO(os.path.join("models", "shape_detection_model.pt"))
 
 behaviours = {0: "Lying down", 1: "Eating", 2: "Standing"}
 
-# Function definitions from your existing code
 def check_cuda():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -59,6 +60,10 @@ def display_cropped_images(result):
 
 def process_image(image_path):
     results = []
+    
+    # To store the count of each behavior class
+    behaviour_count = defaultdict(int)
+    
     detection_model_result = behaviour_model.predict(image_path, conf=0.45)
     for result in detection_model_result:
         cropped_images = display_cropped_images(result)
@@ -67,14 +72,42 @@ def process_image(image_path):
             shape_classes = shape_finder(detected_area, x_offset, y_offset, result.orig_img.shape)
 
             behavior_name = behaviours.get(int(behavior_class_id.item()), "Unknown")
-            # result_str = f"Behavior: {behavior_name} (ID: {behavior_class_id.item()}) has the following shape classes: {shape_classes}"
             if shape_classes:
                 result_str = f"{shape_classes[0]} : This ID cattle is {(behavior_name).lower()}."
+                behaviour_count[behavior_name] += 1
             else:
                 result_str = f"Unidentified cow's behavior: {behavior_name}."
             results.append(result_str)
 
+    # Create separate pie and bar charts
+    create_charts(behaviour_count)
+    
     return results
+
+def create_charts(behaviour_count):
+    # Generate pie chart
+    labels = behaviour_count.keys()
+    sizes = behaviour_count.values()
+    
+    # Pie chart
+    plt.figure(figsize=(5, 5))
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
+    plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    plt.title("Behavior Distribution (Pie Chart)")
+    pie_chart_path = os.path.join(cache_dir, "behavior_pie_chart.png")
+    plt.savefig(pie_chart_path)
+    plt.close()
+    
+    # Bar chart with x-axis as behaviors and y-axis as count
+    plt.figure(figsize=(5, 5))
+    plt.bar(list(labels), list(sizes), color='skyblue')
+    plt.ylabel("Count")
+    plt.xlabel("Behaviors")
+    plt.title("Behavior Distribution (Bar Chart)")
+    bar_chart_path = os.path.join(cache_dir, "behavior_bar_chart.png")
+    plt.savefig(bar_chart_path)
+    plt.close()
+
 
 @app.route('/')
 def index():
@@ -93,7 +126,11 @@ def upload_file():
         file_path = os.path.join(cache_dir, file.filename)
         file.save(file_path)
         results = process_image(file_path)
-        return render_template('results.html', results=results, image_url=url_for('uploaded_file', filename=file.filename))
+        return render_template('results.html', 
+                               results=results, 
+                               image_url=url_for('uploaded_file', filename=file.filename), 
+                               pie_chart_url=url_for('uploaded_file', filename="behavior_pie_chart.png"),
+                               bar_chart_url=url_for('uploaded_file', filename="behavior_bar_chart.png"))
 
 @app.route('/cache/<filename>')
 def uploaded_file(filename):

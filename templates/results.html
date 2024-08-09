@@ -19,28 +19,25 @@
             margin-bottom: 20px;
         }
 
-        .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 20px;
         }
 
-        .image-container {
-            flex: 1;
-            max-width: 45%;
-            margin-right: 20px;
-        }
-
-        .image-container img {
-            max-width: 100%;
-            height: auto;
+        .image-container, .results-container, .pie-chart-container, .bar-chart-container {
+            background-color: #fff;
             border: 2px solid #ddd;
             border-radius: 8px;
+            padding: 10px;
         }
 
-        .results-container {
-            flex: 1;
-            max-width: 45%;
+        .image-container img, .pie-chart-container img, .bar-chart-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: auto;
         }
 
         ul {
@@ -70,30 +67,35 @@
         }
 
         @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-            }
-
-            .image-container, .results-container {
-                max-width: 100%;
-                margin-right: 0;
+            .grid-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
             }
         }
     </style>
 </head>
 <body>
     <h1>Analysis Results</h1>
-    <div class="container">
+    <div class="grid-container">
+        <!-- Uploaded image in top left -->
         <div class="image-container">
-            <!-- Display the uploaded image -->
             <img src="{{ image_url }}" alt="Uploaded Image">
         </div>
+        <!-- Result text in top right -->
         <div class="results-container">
             <ul>
                 {% for result in results %}
                     <li>{{ result }}</li>
                 {% endfor %}
             </ul>
+        </div>
+        <!-- Pie chart in bottom left -->
+        <div class="pie-chart-container">
+            <img src="{{ pie_chart_url }}" alt="Pie Chart">
+        </div>
+        <!-- Bar chart in bottom right -->
+        <div class="bar-chart-container">
+            <img src="{{ bar_chart_url }}" alt="Bar Chart">
         </div>
     </div>
     <a href="/">Upload another image</a>
