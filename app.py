@@ -6,6 +6,8 @@ import numpy as np
 from ultralytics import YOLO
 import tempfile
 from collections import defaultdict
+import matplotlib
+matplotlib.use('Agg')  # Use Agg backend for non-interactive plotting
 import matplotlib.pyplot as plt
 
 app = Flask(__name__)
