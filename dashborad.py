@@ -47,12 +47,12 @@ def index():
     previous_data = [pd.read_csv(os.path.join(csv_dir, f))[selected_cattle] for f in csv_files[:-1]]
 
     # Calculate averages for previous days (excluding the most recent one)
-    avg_eating_previous = sum(d.value_counts().get('E', 0) for d in previous_data) / len(previous_data) / 60
-    avg_lying_previous = sum(d.value_counts().get('L', 0) for d in previous_data) / len(previous_data) / 60
+    avg_eating_previous = sum(d.value_counts().get('E', 0) for d in previous_data) / len(previous_data) / 12
+    avg_lying_previous = sum(d.value_counts().get('L', 0) for d in previous_data) / len(previous_data) / 12
 
     # Get today's eating and lying down time
-    eating_today = cattle_data.value_counts().get('E', 0) / 60
-    lying_today = cattle_data.value_counts().get('L', 0) / 60
+    eating_today = (cattle_data.value_counts().get('E', 0) * 5)/ 60
+    lying_today = (cattle_data.value_counts().get('L', 0) * 5)/ 60
 
     # Perform basic analysis for all cattle
     lying_less_than_8 = []
@@ -61,15 +61,15 @@ def index():
     
     for cattle in cattle_columns:
         cattle_today_data = data[cattle]
-        lying_today_cattle = cattle_today_data.value_counts().get('L', 0) // 60
-        eating_today_cattle = cattle_today_data.value_counts().get('E', 0) // 60
+        lying_today_cattle = (cattle_today_data.value_counts().get('L', 0) *  5) / 60
+        eating_today_cattle = (cattle_today_data.value_counts().get('E', 0) * 5) / 60
         print("Cattle: ", cattle , "Lying: ", lying_today_cattle, "Eating: ", eating_today_cattle) 
 
-        if lying_today_cattle < 13:
+        if lying_today_cattle < 8:
             lying_less_than_8.append(cattle)
-        if eating_today_cattle < 6:
+        if eating_today_cattle < 4:
             eating_less_than_4.append(cattle)
-        if lying_today_cattle > 16:
+        if lying_today_cattle > 12:
             lying_more_than_12.append(cattle)
 
     # Generate Bar Chart for Eating Time
@@ -107,8 +107,8 @@ def index():
     # Iterate through each file to compute the average index
     for i, file in enumerate(csv_files):
         df = pd.read_csv(os.path.join(csv_dir, file))
-        eating_time = df[selected_cattle].value_counts().get('E', 0) / 60
-        lying_time = df[selected_cattle].value_counts().get('L', 0) / 60
+        eating_time = df[selected_cattle].value_counts().get('E', 0) / 12
+        lying_time = df[selected_cattle].value_counts().get('L', 0) / 12
         average_index.append((eating_time + (lying_time / 2)) / 2)
         time_sequence.append(i + 1)
 
