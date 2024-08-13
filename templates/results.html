@@ -91,13 +91,14 @@
         </div>
         <!-- Pie chart in bottom left -->
         <div class="pie-chart-container">
-            <img src="{{ pie_chart_url }}" alt="Pie Chart">
+            <img src="{{ url_for('cached_image', filename=pie_chart) }}" alt="Pie Chart">
         </div>
         <!-- Bar chart in bottom right -->
         <div class="bar-chart-container">
-            <img src="{{ bar_chart_url }}" alt="Bar Chart">
+            <img src="{{ url_for('cached_image', filename=bar_chart) }}" alt="Bar Chart">
         </div>
     </div>
     <a href="/">Upload another image</a>
 </body>
+
 </html>
