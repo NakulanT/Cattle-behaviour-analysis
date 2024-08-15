@@ -10,6 +10,8 @@ import matplotlib
 matplotlib.use('Agg')  # Use Agg backend for non-interactive plotting
 import matplotlib.pyplot as plt
 import pandas as pd
+import time
+import json
 
 app = Flask(__name__)
 
@@ -24,6 +26,10 @@ behaviour_model = YOLO(os.path.join("models", "behaviour_detection_model.pt"))
 shape_model = YOLO(os.path.join("models", "shape_detection_model.pt"))
 
 behaviours = {0: "Lying down", 1: "Eating", 2: "Standing"}
+
+with open('static/class.json', 'r') as file:
+    class_map = json.load(file)
+print("class mapping : ",class_map)
 
 def check_cuda():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -61,6 +67,37 @@ def display_cropped_images(result):
 
     return detected_areas
 
+def draw_bounding_boxes(result, image_path):
+    # Load the image using OpenCV
+    img = cv2.imread(image_path)
+
+    # Define colors for each behavior
+    colors = {
+        "Lying down": (255, 0, 0),  # Blue
+        "Eating": (0, 255, 0),      # Green
+        "Standing": (0, 0, 255),    # Red
+        "Unknown": (255, 255, 255)  # White
+    }
+
+    for behavior_box in result.boxes:
+        x1, y1, x2, y2 = map(int, behavior_box.xyxy[0])
+        behavior_class_id = int(behavior_box.cls.item())
+        behavior_name = behaviours.get(behavior_class_id, "Unknown")
+
+        # Choose the color based on the behavior
+        color = colors.get(behavior_name, (255, 255, 255))  # Default to white if behavior not found
+
+        # Draw a bounding box and label on the image
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+        cv2.putText(img, behavior_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
+    # Save the modified image to the cache directory
+    boxed_image_path = os.path.join(cache_dir, "boxed_" + os.path.basename(image_path))
+    cv2.imwrite(boxed_image_path, img)
+
+    return boxed_image_path
+
+
 def process_image(image_path):
     results = []
     
@@ -76,16 +113,19 @@ def process_image(image_path):
 
             behavior_name = behaviours.get(int(behavior_class_id.item()), "Unknown")
             if shape_classes:
-                result_str = f"{shape_classes[0]} : This ID cattle is {(behavior_name).lower()}."
+                result_str = f"{class_map[shape_classes[0]]} : This ID cattle is {(behavior_name).lower()}."
                 behaviour_count[behavior_name] += 1
             else:
                 result_str = f"Unidentified cow's behavior: {behavior_name}."
             results.append(result_str)
+    
+    # Draw bounding boxes on the original image
+    boxed_image_path = draw_bounding_boxes(result, image_path)
 
     # Create separate pie and bar charts
     create_charts(behaviour_count)
     
-    return results
+    return results, boxed_image_path
 
 def create_charts(behaviour_count):
     # Generate pie chart
@@ -127,12 +167,17 @@ def upload_file():
         # Save the uploaded file to the cache directory
         file_path = os.path.join(cache_dir, file.filename)
         file.save(file_path)
-        results = process_image(file_path)
+        start_time = time.time()
+        results, boxed_image_path = process_image(file_path)
+        end_time = time.time()
+        processing_time = round(end_time - start_time) 
         return render_template('results.html', 
                                results=results, 
-                               image_url=url_for('cached_image', filename=file.filename),
+                               image_url=url_for('cached_image', filename=os.path.basename(boxed_image_path)),
                                pie_chart='behavior_pie_chart.png',
-                               bar_chart='behavior_bar_chart.png')
+                               bar_chart='behavior_bar_chart.png',
+                               device = device,
+                               time=processing_time)
 
 @app.route('/cache/<filename>')
 def cached_image(filename):
@@ -226,8 +271,10 @@ def index():
     plt.close()
 
     # Initialize lists for storing average values and time sequence
-    average_index = []
+    # average_index = []   
     time_sequence = []
+    eating_time_sequence = []
+    lying_time_sequence = []
 
     # Iterate through each file to compute the average index
     print("len(csv_files): ", len(csv_files))
@@ -235,15 +282,19 @@ def index():
         df = pd.read_csv(os.path.join(csv_dir, file))
         eating_time = df[selected_cattle].value_counts().get('E', 0) / 12
         lying_time = df[selected_cattle].value_counts().get('L', 0) / 12
-        average_index.append((eating_time + (lying_time / 2)) / 2)
+        # average_index.append((eating_time + (lying_time / 2)) / 2)
+        eating_time_sequence.append(eating_time)
+        lying_time_sequence.append(lying_time)
         time_sequence.append(i + 1)
 
     # Plot the average index
     plot_path = os.path.join(cache_dir, 'behavior_analysis.png')
     plt.figure(figsize=(10, 6))
-    plt.plot(time_sequence, average_index, label='Average Index based on Eating and Lying Down time(Eating + Lying Down / 2)', marker='o')
+    # plt.plot(time_sequence, average_index, label='Average Index based on Eating and Lying Down time(Eating + Lying Down / 2)', marker='o')
+    plt.plot(time_sequence, eating_time_sequence, label='Eating Time', marker='o')
+    plt.plot(time_sequence, lying_time_sequence, label='Lying Down Time', marker='s')
     plt.xlabel('Days')
-    plt.ylabel('Index')
+    plt.ylabel('hours')
     plt.title('Average Index of Eating and Lying Down Time Over Days')
     plt.legend()
     plt.grid(True)
@@ -256,7 +307,8 @@ def index():
                            lying_more_than_12=lying_more_than_12,
                            pie_chart='pie_chart.png', bar_chart_eating='bar_chart_eating.png', 
                            bar_chart_lying='bar_chart_lying.png',
-                           behavior_analysis='behavior_analysis.png')
+                           behavior_analysis='behavior_analysis.png'
+                           )
 
 
 if __name__ == "__main__":

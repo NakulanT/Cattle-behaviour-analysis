@@ -76,6 +76,11 @@
 </head>
 <body>
     <h1>Analysis Results</h1>
+    <div style="position: fixed; top: 30px; right: 50px; z-index: 1000;">
+        <div style="padding: 10px 20px; font-size: 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Device : {{device}} , {{time}} sec
+        </div>
+    </div>
     <div class="grid-container">
         <!-- Uploaded image in top left -->
         <div class="image-container">
@@ -98,7 +103,7 @@
             <img src="{{ url_for('cached_image', filename=bar_chart) }}" alt="Bar Chart">
         </div>
     </div>
-    <a href="/">Upload another image</a>
+    <a href="/analysis">Upload another image</a>
 </body>
 
 </html>
