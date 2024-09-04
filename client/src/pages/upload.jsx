@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const ImageDisplay = () => {
+const Upload = () => {
     const [file, setFile] = useState(null);
     const [result, setResult] = useState(null);
 
@@ -82,4 +82,4 @@ const ImageDisplay = () => {
     );
 };
 
-export default ImageDisplay;
+export default Upload;
