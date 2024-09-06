@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import AnalysisSummaryCard from '../components/AnalysisSummaryCard';
+
 import axios from 'axios';
 
 const Dashboard = () => {
@@ -39,7 +41,10 @@ const Dashboard = () => {
                 <select 
                     id="cattleSelect"
                     value={selectedCattle} 
-                    onChange={(e) => setSelectedCattle(e.target.value)}
+                    onChange={(e) =>{ 
+                        setSelectedCattle(e.target.value);
+                        handleAnalyze();
+                    }}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
                     <option value="">Select a cattle</option>
@@ -47,12 +52,7 @@ const Dashboard = () => {
                         <option key={cattle} value={cattle}>{cattle}</option>
                     ))}
                 </select>
-                <button 
-                    onClick={handleAnalyze} 
-                    className="mt-4 px-4 py-2 bg-blue-500 text-white font-semibold rounded hover:bg-blue-600"
-                >
-                    Analyze
-                </button>
+           
             </div>
 
             {error && <p className="text-red-500">{error}</p>}
@@ -60,10 +60,17 @@ const Dashboard = () => {
             {analysisResults && (
                 <div className="mt-6">
                     <h3 className="text-xl font-semibold mb-4">Analysis Results for {selectedCattle}</h3>
-                    <p className="mb-2">Average Eating Time (Previous Days): <span className="font-medium">{analysisResults.avg_eating_previous} hours</span></p>
+                    {/* <p className="mb-2">Average Eating Time (Previous Days): <span className="font-medium">{analysisResults.avg_eating_previous} hours</span></p>
                     <p className="mb-2">Average Lying Down Time (Previous Days): <span className="font-medium">{analysisResults.avg_lying_previous} hours</span></p>
                     <p className="mb-2">Eating Time (Today): <span className="font-medium">{analysisResults.eating_today} hours</span></p>
-                    <p className="mb-4">Lying Down Time (Today): <span className="font-medium">{analysisResults.lying_today} hours</span></p>
+                    <p className="mb-4">Lying Down Time (Today): <span className="font-medium">{analysisResults.lying_today} hours</span></p> */}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <AnalysisSummaryCard title="Average Eating Time (Previous Days)" value={parseFloat(analysisResults.avg_eating_previous).toFixed(2)} unit="hours" />
+                        <AnalysisSummaryCard title="Average Lying Down Time (Previous Days)" value={parseFloat(analysisResults.avg_lying_previous).toFixed(2)} unit="hours" />
+                        <AnalysisSummaryCard title="Eating Time (Today)" value={analysisResults.eating_today} unit="hours" />
+                        <AnalysisSummaryCard title="Lying Down Time (Today)" value={analysisResults.lying_today} unit="hours" />
+                    </div>
 
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold">Comparison Charts</h3>

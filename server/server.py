@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory, url_for
 import os
+import csv
 import cv2
 import torch
 import numpy as np
@@ -268,6 +269,11 @@ def analyze_cattle():
 
 
 
+
+
+
+
+
 def create_comparison_charts(avg_eating_previous, avg_lying_previous, eating_today, lying_today, selected_cattle , csv_dir , csv_files):
     plt.figure(figsize=(5, 5))
     plt.bar(['Previous Avg', 'Today'], [avg_eating_previous, eating_today], color='skyblue')
@@ -331,6 +337,71 @@ def extract_date(filename):
     except:
         print(f"Unexpected file format: {filename}")
         return pd.NaT
+
+
+# Load CSV 
+cattle_data = pd.read_csv('C:\\Users\\trshy\\Downloads\\Cattle-behaviour-analysis\\server\\db\\cattle.csv')
+behavior_data = pd.read_csv('C:\\Users\\trshy\\Downloads\\Cattle-behaviour-analysis\\server\\db\\behavior.csv')
+location_data = pd.read_csv('C:\\Users\\trshy\\Downloads\\Cattle-behaviour-analysis\\server\\db\\location.csv')
+
+
+merged_data = pd.merge(behavior_data, cattle_data, on='CattleID', how='inner')
+
+
+# Function to calculate behaviorDurationPerCow
+def get_behavior_duration_per_cow():
+    behavior_duration_per_cow = merged_data.groupby(['CattleID', 'Breed', 'BehaviorType']).agg({
+        'Duration (minutes)': 'sum'
+    }).reset_index()
+    behavior_duration_per_cow.columns = ['CattleID', 'Breed', 'BehaviorType', 'TotalDuration']
+    return behavior_duration_per_cow.to_dict(orient='records')
+
+# Function to calculate averageBehaviorDurationPerBreed
+def get_average_behavior_duration_per_breed():
+    average_behavior_duration_per_breed = merged_data.groupby(['Breed', 'BehaviorType']).agg({
+        'Duration (minutes)': 'mean'
+    }).reset_index()
+    average_behavior_duration_per_breed.columns = ['Breed', 'BehaviorType', 'AverageDuration']
+    return average_behavior_duration_per_breed.to_dict(orient='records')
+
+# API route to get data
+@app.route('/behavior-duration', methods=['GET'])
+def behavior_duration():
+    data = {
+        'behaviorDurationPerCow': get_behavior_duration_per_cow(),
+        'averageBehaviorDurationPerBreed': get_average_behavior_duration_per_breed()
+    }
+    return jsonify(data)
+
+
+
+
+
+
+
+
+# def load_csv(file_path):
+#     with open(file_path, mode='r') as file:
+#         reader = csv.DictReader(file)
+#         return [row for row in reader]
+
+# @app.route('/api/behavior')
+# def get_behavior_data():
+#     data = load_csv('C:\\Users\\trshy\\Downloads\\Cattle-behaviour-analysis\\server\\db\\behavior.csv')
+#     return jsonify(data)
+
+# @app.route('/api/location')
+# def get_location_data():
+#     data = load_csv('C:\\Users\\trshy\\Downloads\\Cattle-behaviour-analysis\\server\\db\\behavior.csv')
+#     return jsonify(data)
+
+# @app.route('/api/cattle')
+# def get_cattle_data():
+#     data = load_csv('C:\\Users\\trshy\\Downloads\\Cattle-behaviour-analysis\\server\\db\\behavior.csv')
+#     return jsonify(data)
+
+
+
 
 
 if __name__ == '__main__':

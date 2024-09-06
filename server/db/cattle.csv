@@ -1,0 +1,11 @@
+CattleID,TagNumber,Breed,Age,OtherAttributes
+1,9348,Limousin,2,"{""health_status"": ""excellent""}"
+2,9802,Guernsey,4,"{""health_status"": ""good""}"
+3,4002,Brown Swiss,6,"{""health_status"": ""good""}"
+4,4846,Limousin,5,"{""health_status"": ""average""}"
+5,3666,Simmental,6,"{""health_status"": ""good""}"
+6,8014,Angus,2,"{""health_status"": ""excellent""}"
+7,5632,Brown Swiss,5,"{""health_status"": ""good""}"
+8,2065,Brown Swiss,3,"{""health_status"": ""excellent""}"
+9,6793,Limousin,4,"{""health_status"": ""average""}"
+10,3199,Angus,3,"{""health_status"": ""average""}"
