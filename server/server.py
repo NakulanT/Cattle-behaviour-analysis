@@ -331,6 +331,23 @@ def extract_date(filename):
     except:
         print(f"Unexpected file format: {filename}")
         return pd.NaT
+    
+@app.route('/zone_image', methods=['GET'])
+def zone_image():
+    # The image path here should be relative to the static folder.
+    # Ensure 'sampleImage.png' is stored in the 'static' directory.
+    image_path = url_for('static', filename='sampleImage.png')
+    return jsonify({"image_url": image_path})
+
+
+@app.route('/coordinates', methods=['POST'])
+def handle_coordinates():
+    data = request.json
+    # Process the data here
+    # For example, save it to a database or file
+    print("Data : ",data)
+    return jsonify({'status': 'success', 'data': data}), 200
+
 
 
 if __name__ == '__main__':

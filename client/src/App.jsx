@@ -6,6 +6,7 @@ import Upload from './pages/Upload';
 import Dashboard from './pages/Dashboard';
 import './App.css';
 import ProgressBar from './components/Progressbar';
+import DrawZone from './components/Drawzone';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -20,6 +21,7 @@ function App() {
 
   return (
     <>
+    <DrawZone />
       <h1 className="text-3xl font-bold underline">
         Hello world!
       </h1>
