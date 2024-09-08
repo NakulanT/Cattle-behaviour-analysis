@@ -14,6 +14,9 @@ import time
 import json
 from flask_cors import CORS
 import random
+from datetime import datetime, timedelta
+from datetime import datetime, timedelta
+import calendar
 
 
 app = Flask(__name__)
@@ -444,6 +447,268 @@ def zone_image():
     
     # Return the URL of the saved image
     return jsonify({"image_url": url_for('cached_image', filename=image_filename)})
+
+DATA_DIR = 'cattle_behavior_data/'
+
+
+# Helper function to convert minutes to hours for specified columns
+def convert_minutes_to_hours(df, time_cols):
+    df[time_cols] = df[time_cols] / 60  # Divide minutes by 60 to get hours
+    return df
+
+
+# Helper function to load data from CSV for a specific date
+def load_behavior_data(date_str):
+    file_path = os.path.join(DATA_DIR, f"{date_str}.csv")
+    if os.path.exists(file_path):
+        return pd.read_csv(file_path)
+    else:
+        return None
+
+def get_weekly_behavior(end_date_str):
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+    start_date = end_date - timedelta(days=6)
+    dates = [start_date + timedelta(days=i) for i in range(7)]
+    
+    weekly_data = []
+    for date in dates:
+        date_str = date.strftime('%Y-%m-%d')
+        data = load_behavior_data(date_str)
+        if data is not None:
+            weekly_data.append(data)
+    
+    if weekly_data:
+        weekly_df = pd.concat(weekly_data)
+        
+        # Clean column names
+        weekly_df.columns = weekly_df.columns.str.strip()
+        
+        # Ensure 'Cow ID' is a string
+        weekly_df['Cow ID'] = weekly_df['Cow ID'].astype(str)
+        
+        # Convert numeric columns to proper type
+        numeric_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Temperature (°C)']
+        weekly_df[numeric_cols] = weekly_df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        
+        # Fill NaN values in numeric columns with 0
+        weekly_df[numeric_cols].fillna(0, inplace=True)
+        
+        # Group by 'Cow ID' and calculate the total sum of numeric columns
+        weekly_trends = weekly_df.groupby('Cow ID')[numeric_cols].sum()
+        
+        # Convert time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        weekly_trends = convert_minutes_to_hours(weekly_trends, time_cols)
+        
+        # Convert back to dictionary for API response
+        weekly_trends = weekly_trends.to_dict()
+
+        return weekly_trends
+    else:
+        return {}
+
+def get_daily_behavior(date_str):
+    # Load behavior data for the specified date
+    data = load_behavior_data(date_str)
+    
+    if data is not None:
+        # Clean column names and ensure proper types
+        data.columns = data.columns.str.strip()
+        data['Cow ID'] = data['Cow ID'].astype(str)
+        numeric_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Temperature (°C)']
+        data[numeric_cols] = data[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        data[numeric_cols].fillna(0, inplace=True)
+        
+        # Group by 'Cow ID' and calculate the sum for the day
+        daily_trends = data.groupby('Cow ID')[numeric_cols].sum()
+        
+        # Convert time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        daily_trends = convert_minutes_to_hours(daily_trends, time_cols)
+        
+        return daily_trends.to_dict()
+    else:
+        return {}
+
+def get_monthly_behavior(year_month_str):
+    # Parse the input string (e.g., '2022-09')
+    year, month = map(int, year_month_str.split('-'))
+    
+    # Determine the number of days in the month
+    _, num_days_in_month = calendar.monthrange(year, month)
+    
+    # Get the start and end dates for the month
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, num_days_in_month)
+    
+    # Collect data for each day of the month
+    dates = [start_date + timedelta(days=i) for i in range(num_days_in_month)]
+    
+    monthly_data = []
+    for date in dates:
+        date_str = date.strftime('%Y-%m-%d')
+        data = load_behavior_data(date_str)
+        if data is not None:
+            monthly_data.append(data)
+    
+    if monthly_data:
+        monthly_df = pd.concat(monthly_data)
+        
+        # Clean column names and ensure proper types
+        monthly_df.columns = monthly_df.columns.str.strip()
+        monthly_df['Cow ID'] = monthly_df['Cow ID'].astype(str)
+        numeric_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Temperature (°C)']
+        monthly_df[numeric_cols] = monthly_df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        monthly_df[numeric_cols].fillna(0, inplace=True)
+        
+        # Group by 'Cow ID' and calculate the total sum of numeric columns for the month
+        monthly_trends = monthly_df.groupby('Cow ID')[numeric_cols].sum()
+        
+        # Convert time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        monthly_trends = convert_minutes_to_hours(monthly_trends, time_cols)
+
+        return monthly_trends.to_dict()
+    else:
+        return {}
+
+
+
+    # Parse the input string (e.g., '2022-09')
+    year, month = map(int, year_month_str.split('-'))
+    
+    # Determine the number of days in the month
+    _, num_days_in_month = calendar.monthrange(year, month)
+    
+    # Get the start and end dates for the month
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, num_days_in_month)
+    
+    # Collect data for each day of the month
+    dates = [start_date + timedelta(days=i) for i in range(num_days_in_month)]
+    
+    monthly_data = []
+    for date in dates:
+        date_str = date.strftime('%Y-%m-%d')
+        data = load_behavior_data(date_str)
+        if data is not None:
+            monthly_data.append(data)
+    
+    if monthly_data:
+        monthly_df = pd.concat(monthly_data)
+        
+        # Clean column names and ensure proper types
+        monthly_df.columns = monthly_df.columns.str.strip()
+        monthly_df['Cow ID'] = monthly_df['Cow ID'].astype(str)
+        numeric_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Temperature (°C)']
+        monthly_df[numeric_cols] = monthly_df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        monthly_df[numeric_cols].fillna(0, inplace=True)
+        
+        # Group by 'Cow ID' and calculate the total sum of numeric columns for the month
+        monthly_trends = monthly_df.groupby('Cow ID')[numeric_cols].sum()
+        
+        # Convert time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        monthly_trends = convert_minutes_to_hours(monthly_trends, time_cols)
+
+        return monthly_trends.to_dict()
+    else:
+        return {}
+
+# Function to load data for a specific date range or the entire directory
+def load_behavior_data_with_weather(start_date=None, end_date=None):
+    all_data = []
+    
+    # List all files in the directory
+    for file_name in os.listdir(DATA_DIR):
+        # Extract the date from the file name (e.g., 2022-09-07.csv -> 2022-09-07)
+        file_date_str = file_name.replace('.csv', '')
+
+        # Check if the date falls within the desired range (if specified)
+        if start_date and end_date:
+            if not (start_date <= file_date_str <= end_date):
+                continue
+
+        # Construct full file path
+        file_path = os.path.join(DATA_DIR, file_name)
+
+        # Load CSV data
+        data = pd.read_csv(file_path)
+        all_data.append(data)
+
+    # Combine all the data into a single DataFrame
+    if all_data:
+        combined_data = pd.concat(all_data, ignore_index=True)
+        return combined_data
+    else:
+        print(f"No data found between {start_date} and {end_date}")
+        return None
+
+# API endpoint to return weather-based behavior trends
+@app.route('/api/behavior/weather_impact', methods=['GET'])
+def weather_impact():
+    # Load behavior data for the specified date range
+    data = load_behavior_data_with_weather('2022-09-07', '2022-09-13')
+
+    if data is not None:
+        # Group the data by Weather Condition and sum the behavior times for each condition
+        weather_impact_totals = data.groupby('Weather Condition')[['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']].sum()
+
+        # Convert the time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        weather_impact_totals = convert_minutes_to_hours(weather_impact_totals, time_cols)
+
+        # Convert the results to a dictionary
+        weather_impact_dict = weather_impact_totals.to_dict()
+
+        # Return the result as JSON
+        return jsonify({'weather_impact': weather_impact_dict})
+    else:
+        return jsonify({'error': 'No data found'}), 404
+
+@app.route('/api/behavior/trends', methods=['GET'])
+def behavior_trends():
+    # Get the type of trend from query parameters: 'weekly', 'monthly', or 'daily'
+    trend_type = request.args.get('trend_type', 'daily')  # Default to 'daily' if not provided
+    date = request.args.get('date')  # The date parameter (should be in 'YYYY-MM-DD' format)
+
+    if not date:
+        return jsonify({'error': 'Date is required'}), 400
+
+    if trend_type == 'daily':
+        # Daily behavior trends
+        data = load_behavior_data(date)
+        if data is not None:
+            daily_trends = get_daily_behavior(date)
+            return jsonify({'trends': daily_trends})
+        else:
+            return jsonify({'error': 'Date not found'}), 404
+
+    elif trend_type == 'weekly':
+        # Weekly behavior trends
+        weekly_trends = get_weekly_behavior(date)
+        if weekly_trends:
+            return jsonify({'trends': weekly_trends})
+        else:
+            return jsonify({'error': 'Data not found for the week'}), 404
+
+    elif trend_type == 'monthly':
+        # Monthly behavior trends
+        # Extract the month and year from the provided date
+        try:
+            year_month = '-'.join(date.split('-')[:2])  # Extract 'YYYY-MM' from 'YYYY-MM-DD'
+            monthly_trends = get_monthly_behavior(year_month)
+            if monthly_trends:
+                return jsonify({'trends': monthly_trends})
+            else:
+                return jsonify({'error': 'Data not found for the month'}), 404
+        except ValueError:
+            return jsonify({'error': 'Invalid date format'}), 400
+
+    else:
+        # Invalid trend_type
+        return jsonify({'error': 'Invalid trend_type. Use "daily", "weekly", or "monthly".'}), 400
+
 
 
 if __name__ == '__main__':
