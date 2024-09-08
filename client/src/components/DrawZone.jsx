@@ -17,7 +17,7 @@ const DrawZone = () => {
     axios.get('http://127.0.0.1:5000/zone_image')
       .then(response => {
         console.log('Image URL fetched:', response.data.image_url);
-        setImageUrl("http://127.0.0.1:5000"+ response.data.image_url);
+        setImageUrl("http://127.0.0.1:5000" + response.data.image_url);
       })
       .catch(error => {
         console.error('There was an error fetching the image URL!', error);
@@ -27,8 +27,6 @@ const DrawZone = () => {
 
   useEffect(() => {
     if (imageUrl) {
-      console.log('Image URL in useEffect:', imageUrl);
-      console.log('Canvas ref:', canvasRef.current);
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       ctxRef.current = ctx;
@@ -36,13 +34,13 @@ const DrawZone = () => {
       const img = new Image();
       img.src = imageUrl;
       img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+        // Set canvas size to 640x640
+        canvas.width = 640;
+        canvas.height = 640;
+        // Draw the image scaled to 640x640
+        ctx.drawImage(img, 0, 0, 640, 640);
       };
       imageRef.current = img;
-    } else {
-      console.log("No image URL found");
     }
   }, [imageUrl]);
 
@@ -51,7 +49,7 @@ const DrawZone = () => {
     setStartX(e.nativeEvent.offsetX);
     setStartY(e.nativeEvent.offsetY);
     ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctxRef.current.drawImage(imageRef.current, 0, 0);
+    ctxRef.current.drawImage(imageRef.current, 0, 0, 640, 640);
   };
 
   const handleMouseMove = (e) => {
@@ -63,27 +61,41 @@ const DrawZone = () => {
     const height = currentY - startY;
 
     ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctxRef.current.drawImage(imageRef.current, 0, 0);
+    ctxRef.current.drawImage(imageRef.current, 0, 0, 640, 640);
     ctxRef.current.strokeStyle = 'red';
     ctxRef.current.lineWidth = 2;
     ctxRef.current.strokeRect(startX, startY, width, height);
   };
 
-  const handleMouseUp = (e) => {
-    setIsDrawing(false);
-    const width = e.nativeEvent.offsetX - startX;
-    const height = e.nativeEvent.offsetY - startY;
+  const finalizeBox = (e) => {
+    const endX = e.nativeEvent.offsetX;
+    const endY = e.nativeEvent.offsetY;
+    const width = endX - startX;
+    const height = endY - startY;
     const zone = { startX, startY, width, height };
+
     setDrawnZone(zone);
     setCoordinates(`Zone Coordinates: Start (${startX}, ${startY}), Width: ${width}, Height: ${height}`);
+    setIsDrawing(false);
+  };
+
+  const handleMouseUp = (e) => {
+    finalizeBox(e);
+  };
+
+  const handleMouseLeave = (e) => {
+    if (isDrawing) {
+      finalizeBox(e); // Finalize the box even if the mouse leaves the canvas
+    }
   };
 
   const handleRedraw = () => {
     ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctxRef.current.drawImage(imageRef.current, 0, 0);
+    ctxRef.current.drawImage(imageRef.current, 0, 0, 640, 640);
     setCoordinates(null);
     setDrawnZone(null);
   };
+
   const handleSave = async () => {
     if (drawnZone) {
       try {
@@ -91,7 +103,6 @@ const DrawZone = () => {
           headers: { 'Content-Type': 'application/json' },
         });
   
-        // Check if the response data is available
         if (response.data) {
           alert(`Zone saved: ${JSON.stringify(response.data)}`);
         } else {
@@ -99,24 +110,31 @@ const DrawZone = () => {
           alert('Failed to save zone. Received an empty response.');
         }
       } catch (error) {
-        // Handle HTTP errors and network errors
         if (error.response) {
-          // Server responded with a status other than 2xx
           console.error('Error response from server:', error.response.status, error.response.data);
           alert(`Failed to save zone. Server responded with status ${error.response.status}.`);
         } else if (error.request) {
-          // Request was made but no response was received
           console.error('No response received:', error.request);
           alert('Failed to save zone. No response from server.');
         } else {
-          // Something else happened while setting up the request
           console.error('Error while setting up request:', error.message);
           alert('Error saving zone.');
         }
       }
     }
   };
-  
+
+  const handleRefresh = () => {
+    setDrawnZone(null);
+    setCoordinates(null);
+    axios.get('http://127.0.0.1:5000/zone_image')
+      .then(response => {
+        setImageUrl("http://127.0.0.1:5000" + response.data.image_url);
+      })
+      .catch(error => {
+        setError('Failed to fetch image URL.');
+      });
+  };
 
   return (
     <div className="flex flex-col items-center">
@@ -124,13 +142,14 @@ const DrawZone = () => {
       {error ? (
         <p className="text-red-500">{error}</p>
       ) : (
-        
         <canvas
           ref={canvasRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
           className="border border-black cursor-crosshair"
+          style={{ width: '640px', height: '640px' }}  // Ensure canvas size is always 640x640
         />
       )}
       <p className="mt-4">{coordinates}</p>
@@ -148,6 +167,12 @@ const DrawZone = () => {
           className="px-4 py-2 bg-blue-500 text-white rounded ml-4"
         >
           Redraw
+        </button>
+        <button
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-gray-500 text-white rounded ml-4"
+        >
+          Refresh
         </button>
       </div>
     </div>

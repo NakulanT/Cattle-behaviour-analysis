@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import './App.css';
 import ProgressBar from './components/Progressbar';
 import DrawZone from './components/Drawzone';
+import UploadVideo from './components/UploadVideo';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -21,6 +22,7 @@ function App() {
 
   return (
     <>
+    <UploadVideo />
     <DrawZone />
       <h1 className="text-3xl font-bold underline">
         Hello world!

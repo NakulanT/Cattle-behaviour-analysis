@@ -22,6 +22,7 @@ const Dashboard = () => {
         axios.post('http://127.0.0.1:5000/analyze_cattle', { cattle: selectedCattle })
             .then(response => {
                 setAnalysisResults(response.data);
+                console.log("Analysis results:", response.data);
                 setError('');
             })
             .catch(error => {
