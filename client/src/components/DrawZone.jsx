@@ -2,18 +2,24 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
 const DrawZone = () => {
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [startY, setStartY] = useState(0);
-  const [drawnZone, setDrawnZone] = useState(null);
-  const [coordinates, setCoordinates] = useState(null);
+  const defaultPoints = [
+    { x: 270, y: 270 }, // top-left
+    { x: 370, y: 270 }, // top-right
+    { x: 270, y: 370 }, // bottom-left
+    { x: 370, y: 370 }, // bottom-right
+  ];
+
+  const [points, setPoints] = useState(defaultPoints);
+  const [draggingPointIndex, setDraggingPointIndex] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
   const [error, setError] = useState(null);
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
   const imageRef = useRef(null);
+  const [refreshFlag, setRefreshFlag] = useState(0); // Add refresh flag to trigger full component reload
 
-  useEffect(() => {
+  // Function to fetch the image URL
+  const fetchImage = () => {
     axios.get('http://127.0.0.1:5000/zone_image')
       .then(response => {
         console.log('Image URL fetched:', response.data.image_url);
@@ -23,7 +29,11 @@ const DrawZone = () => {
         console.error('There was an error fetching the image URL!', error);
         setError('Failed to fetch image URL.');
       });
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchImage();
+  }, [refreshFlag]); // Re-fetch image when refreshFlag changes
 
   useEffect(() => {
     if (imageUrl) {
@@ -34,106 +44,101 @@ const DrawZone = () => {
       const img = new Image();
       img.src = imageUrl;
       img.onload = () => {
-        // Set canvas size to 640x640
         canvas.width = 640;
         canvas.height = 640;
-        // Draw the image scaled to 640x640
         ctx.drawImage(img, 0, 0, 640, 640);
+        drawQuadrilateral();
       };
       imageRef.current = img;
     }
-  }, [imageUrl]);
+  }, [imageUrl, points]);
+
+  const drawQuadrilateral = () => {
+    const ctx = ctxRef.current;
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    ctx.drawImage(imageRef.current, 0, 0, 640, 640);
+
+    // Draw the quadrilateral connecting the points
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y); // Move to top-left
+    ctx.lineTo(points[1].x, points[1].y); // Line to top-right
+    ctx.lineTo(points[3].x, points[3].y); // Line to bottom-right
+    ctx.lineTo(points[2].x, points[2].y); // Line to bottom-left
+    ctx.closePath(); // Close the quadrilateral
+    ctx.stroke();
+
+    // Draw the points
+    points.forEach(point => {
+      ctx.fillStyle = 'blue';
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  };
 
   const handleMouseDown = (e) => {
-    setIsDrawing(true);
-    setStartX(e.nativeEvent.offsetX);
-    setStartY(e.nativeEvent.offsetY);
-    ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctxRef.current.drawImage(imageRef.current, 0, 0, 640, 640);
+    const mouseX = e.nativeEvent.offsetX;
+    const mouseY = e.nativeEvent.offsetY;
+
+    // Check if the mouse is over any point
+    const pointIndex = points.findIndex(point => {
+      return (
+        Math.abs(mouseX - point.x) < 10 &&
+        Math.abs(mouseY - point.y) < 10
+      );
+    });
+
+    if (pointIndex !== -1) {
+      setDraggingPointIndex(pointIndex);
+    }
   };
 
   const handleMouseMove = (e) => {
-    if (!isDrawing) return;
+    if (draggingPointIndex === null) return;
 
-    const currentX = e.nativeEvent.offsetX;
-    const currentY = e.nativeEvent.offsetY;
-    const width = currentX - startX;
-    const height = currentY - startY;
+    const mouseX = e.nativeEvent.offsetX;
+    const mouseY = e.nativeEvent.offsetY;
 
-    ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctxRef.current.drawImage(imageRef.current, 0, 0, 640, 640);
-    ctxRef.current.strokeStyle = 'red';
-    ctxRef.current.lineWidth = 2;
-    ctxRef.current.strokeRect(startX, startY, width, height);
+    const newPoints = [...points];
+    newPoints[draggingPointIndex] = { x: mouseX, y: mouseY };
+    setPoints(newPoints);
   };
 
-  const finalizeBox = (e) => {
-    const endX = e.nativeEvent.offsetX;
-    const endY = e.nativeEvent.offsetY;
-    const width = endX - startX;
-    const height = endY - startY;
-    const zone = { startX, startY, width, height };
-
-    setDrawnZone(zone);
-    setCoordinates(`Zone Coordinates: Start (${startX}, ${startY}), Width: ${width}, Height: ${height}`);
-    setIsDrawing(false);
-  };
-
-  const handleMouseUp = (e) => {
-    finalizeBox(e);
-  };
-
-  const handleMouseLeave = (e) => {
-    if (isDrawing) {
-      finalizeBox(e); // Finalize the box even if the mouse leaves the canvas
-    }
-  };
-
-  const handleRedraw = () => {
-    ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctxRef.current.drawImage(imageRef.current, 0, 0, 640, 640);
-    setCoordinates(null);
-    setDrawnZone(null);
+  const handleMouseUp = () => {
+    setDraggingPointIndex(null);
   };
 
   const handleSave = async () => {
-    if (drawnZone) {
-      try {
-        const response = await axios.post('http://127.0.0.1:5000/coordinates', drawnZone, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-  
-        if (response.data) {
-          alert(`Zone saved: ${JSON.stringify(response.data)}`);
-        } else {
-          console.error('Received an empty response.');
-          alert('Failed to save zone. Received an empty response.');
-        }
-      } catch (error) {
-        if (error.response) {
-          console.error('Error response from server:', error.response.status, error.response.data);
-          alert(`Failed to save zone. Server responded with status ${error.response.status}.`);
-        } else if (error.request) {
-          console.error('No response received:', error.request);
-          alert('Failed to save zone. No response from server.');
-        } else {
-          console.error('Error while setting up request:', error.message);
-          alert('Error saving zone.');
-        }
+    const zone = {
+      topLeft: points[0],
+      topRight: points[1],
+      bottomLeft: points[2],
+      bottomRight: points[3],
+    };
+
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/coordinates', zone, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.data) {
+        alert(`Zone saved: ${JSON.stringify(response.data)}`);
+      } else {
+        console.error('Received an empty response.');
+        alert('Failed to save zone. Received an empty response.');
       }
+    } catch (error) {
+      console.error('Error saving zone:', error);
+      alert('Error saving zone.');
     }
   };
 
+  // Function to refresh the entire component, including the image and points
   const handleRefresh = () => {
-    setDrawnZone(null);
-    setCoordinates(null);
-    axios.get('http://127.0.0.1:5000/zone_image')
-      .then(response => {
-        setImageUrl("http://127.0.0.1:5000" + response.data.image_url);
-      })
-      .catch(error => {
-        setError('Failed to fetch image URL.');
-      });
+    setPoints(defaultPoints); // Reset points
+    setRefreshFlag(prev => prev + 1); // Trigger a re-fetch by changing the refresh flag
   };
 
   return (
@@ -147,30 +152,20 @@ const DrawZone = () => {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
           className="border border-black cursor-crosshair"
-          style={{ width: '640px', height: '640px' }}  // Ensure canvas size is always 640x640
+          style={{ width: '640px', height: '640px' }}
         />
       )}
-      <p className="mt-4">{coordinates}</p>
-
       <div className="mt-4">
         <button
           onClick={handleSave}
-          className={`px-4 py-2 bg-green-500 text-white rounded ${!drawnZone ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={!drawnZone}
+          className="px-4 py-2 bg-green-500 text-white rounded mr-4"
         >
           Save
         </button>
         <button
-          onClick={handleRedraw}
-          className="px-4 py-2 bg-blue-500 text-white rounded ml-4"
-        >
-          Redraw
-        </button>
-        <button
           onClick={handleRefresh}
-          className="px-4 py-2 bg-gray-500 text-white rounded ml-4"
+          className="px-4 py-2 bg-blue-500 text-white rounded"
         >
           Refresh
         </button>
