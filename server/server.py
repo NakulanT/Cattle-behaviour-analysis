@@ -711,5 +711,64 @@ def behavior_trends():
 
 
 
+# Function to load and filter data by date range
+def load_feeding_data(start_date=None, end_date=None):
+    directory = 'cattle_behavior_data/'  # Path to your CSV directory
+    all_data = []
+
+    # Parse the start and end dates
+    if start_date:
+        start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    if end_date:
+        end_date = datetime.strptime(end_date, '%Y-%m-%d')
+
+    # Read all CSV files and filter by date
+    for file_name in os.listdir(directory):
+        file_date = datetime.strptime(file_name.replace('.csv', ''), '%Y-%m-%d')
+
+        if start_date and end_date:
+            if start_date <= file_date <= end_date:
+                file_path = os.path.join(directory, file_name)
+                data = pd.read_csv(file_path)
+                all_data.append(data)
+        else:
+            file_path = os.path.join(directory, file_name)
+            data = pd.read_csv(file_path)
+            all_data.append(data)
+
+    if all_data:
+        combined_data = pd.concat(all_data, ignore_index=True)
+        return combined_data[['Cow ID', 'Eating Time (min)']]
+    return None
+
+# API endpoint to get feeding efficiency data by date range
+@app.route('/api/feeding_efficiency', methods=['GET'])
+def feeding_efficiency():
+    # Get the date parameters from the query string (daily, weekly, or monthly)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Load data based on the provided date range
+    data = load_feeding_data(start_date, end_date)
+    if data is None:
+        return jsonify({"error": "No data available for the selected date range"}), 404
+
+    # Calculate the herd average eating time
+    herd_average = data['Eating Time (min)'].mean()
+
+    # Create a list of cows with their eating times and comparison to the average
+    result = []
+    for _, row in data.iterrows():
+        result.append({
+            'Cow ID': row['Cow ID'],
+            'Eating Time (min)': row['Eating Time (min)'],
+            'belowAverage': row['Eating Time (min)'] < herd_average
+        })
+
+    return jsonify({
+        'herdAverage': herd_average,
+        'feedingData': result
+    })
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -4,6 +4,7 @@ import { Box, Typography } from '@mui/material';
 import TrendControls from '../components/TrendControls';
 import BehaviorTrends from '../components/BehaviorTrends';
 import WeatherImpactChart from '../components/WeatherImpactChart';
+import FeedingEfficiencyDashboard from '../components/FeedingEfficiency/FeedingEfficiencyDashboard';
 
 const Dashboard1 = () => {
   const [trendType, setTrendType] = useState('daily');
@@ -29,6 +30,7 @@ const Dashboard1 = () => {
     </Box>
 
     <WeatherImpactChart/>
+    <FeedingEfficiencyDashboard/>
     </div>
     
     </>
