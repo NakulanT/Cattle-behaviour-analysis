@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, url_for
+from flask import Flask, request, jsonify, send_from_directory, url_for , send_file
 import os
 import cv2
 import torch
@@ -13,6 +13,8 @@ import pandas as pd
 import time
 import json
 from flask_cors import CORS
+import random
+
 
 app = Flask(__name__)
 CORS(app)
@@ -28,6 +30,8 @@ behaviour_model = YOLO(os.path.join("models", "behaviour_detection_model.pt"))
 shape_model = YOLO(os.path.join("models", "shape_detection_model.pt"))
 
 behaviours = {0: "Lying down", 1: "Eating", 2: "Standing"}
+
+VIDEO_PATH = ''  # Initialize the video path as an empty string
 
 with open('static/class.json', 'r') as file:
     class_map = json.load(file)
@@ -331,6 +335,115 @@ def extract_date(filename):
     except:
         print(f"Unexpected file format: {filename}")
         return pd.NaT
+
+
+@app.route('/coordinates', methods=['POST'])
+def handle_coordinates():
+    data = request.json
+    # Process the data here
+    # For example, save it to a database or file
+    print("Data : ",data)
+    return jsonify({'status': 'success', 'data': data}), 200
+
+#new code may probelm occurs
+
+@app.route('/zone_video', methods=['POST'])
+def zone_video():
+    """
+    Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
+    """
+    global VIDEO_PATH  # Declare VIDEO_PATH as global to modify it
+    print("yeah I am here")
+    
+    if 'video' not in request.files:
+        return {'error': "No video part in the request"}, 400
+    
+    video_file = request.files['video']
+    
+    if video_file.filename == '':
+        return {'error': "No selected file"}, 400
+    
+    video_path = os.path.join(cache_dir, video_file.filename)
+    
+    # Save or replace the video
+    video_file.save(video_path)
+    print("Video saved successfully.")
+    
+    if os.path.exists(video_path):
+        VIDEO_PATH = video_path  # Update the global VIDEO_PATH
+        print("zone Video, Video path:", VIDEO_PATH)
+    
+    return {'message': "Video uploaded successfully"}, 200
+
+@app.route('/zone_image', methods=['GET'])
+def zone_image():
+    """
+    Return the 5th frame of the uploaded video or a static image if no video is provided,
+    resizing the frame to 640x640 before sending it.
+    """
+    global VIDEO_PATH  # Declare VIDEO_PATH as global to access its updated value
+    print("zone_image dir, video path", VIDEO_PATH)
+    
+    video_path = VIDEO_PATH
+    print("Video path:", video_path)
+    
+    # Check if the video exists
+    if video_path == '' or not os.path.exists(video_path):
+        print("Error: No video found.")
+        image_path = url_for('static', filename='sampleImage.png')
+        return jsonify({"image_url": image_path})
+    
+    # Open the video
+    cap = cv2.VideoCapture(video_path)
+    
+    if not cap.isOpened():
+        print("Error: Could not open the video.")
+        image_path = url_for('static', filename='sampleImage.png')
+        return jsonify({"image_url": image_path})
+    
+    # Skip frames to reach the 5th frame
+    frame_number = 5
+    for _ in range(frame_number - 1):
+        ret = cap.grab()  # Skip frame
+        if not ret:
+            print("Error: Could not skip frames.")
+            image_path = url_for('static', filename='sampleImage.png')
+            cap.release()
+            return jsonify({"image_url": image_path})
+    
+    # Read the 5th frame
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Could not read the frame.")
+        image_path = url_for('static', filename='sampleImage.png')
+        cap.release()
+        return jsonify({"image_url": image_path})
+    
+    # Resize the frame to 640x640
+    resized_frame = cv2.resize(frame, (640, 640))
+    
+    # Generate a random 4-digit number for the image filename
+    random_number = random.randint(1000, 9999)
+    image_filename = f"{random_number}.jpg"
+    temp_image_path = os.path.join(cache_dir, image_filename)
+    
+    # Save the resized 5th frame as an image
+    cv2.imwrite(temp_image_path, resized_frame)
+    
+    cap.release()
+    
+    # Verify the file has been updated
+    if os.path.exists(temp_image_path):
+        print(f"Successfully saved the resized 5th frame as {image_filename}.")
+    else:
+        print("Error: Failed to save the resized 5th frame.")
+    
+    for i in os.listdir(cache_dir):
+        print(i)
+    print("Image shape`:", resized_frame.shape)
+    
+    # Return the URL of the saved image
+    return jsonify({"image_url": url_for('cached_image', filename=image_filename)})
 
 
 if __name__ == '__main__':
