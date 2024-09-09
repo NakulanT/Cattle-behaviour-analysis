@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, url_for , send_file
+from flask import Flask, request, jsonify, send_from_directory, url_for , send_file ,Response
 import os
 import cv2
 import torch
@@ -14,6 +14,10 @@ import time
 import json
 from flask_cors import CORS
 import random
+from datetime import datetime
+import csv
+import shutil
+import threading
 
 
 app = Flask(__name__)
@@ -108,10 +112,11 @@ def process_image(image_path):
 
             behavior_name = behaviours.get(int(behavior_class_id.item()), "Unknown")
             if shape_classes:
-                result_str = f"{class_map[shape_classes[0]]} : This ID cattle is {(behavior_name).lower()}."
+                result_str = {class_map[shape_classes[0]]: behavior_name}
+                # result_str = f"{class_map[shape_classes[0]]} : This ID cattle is {(behavior_name).lower()}."
                 behaviour_count[behavior_name] += 1
             else:
-                result_str = f"Unidentified cow's behavior: {behavior_name}."
+                result_str = {"Unknown": behavior_name}
             results.append(result_str)
     
     boxed_image_path = draw_bounding_boxes(result, image_path)
@@ -347,34 +352,6 @@ def handle_coordinates():
 
 #new code may probelm occurs
 
-@app.route('/zone_video', methods=['POST'])
-def zone_video():
-    """
-    Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
-    """
-    global VIDEO_PATH  # Declare VIDEO_PATH as global to modify it
-    print("yeah I am here")
-    
-    if 'video' not in request.files:
-        return {'error': "No video part in the request"}, 400
-    
-    video_file = request.files['video']
-    
-    if video_file.filename == '':
-        return {'error': "No selected file"}, 400
-    
-    video_path = os.path.join(cache_dir, video_file.filename)
-    
-    # Save or replace the video
-    video_file.save(video_path)
-    print("Video saved successfully.")
-    
-    if os.path.exists(video_path):
-        VIDEO_PATH = video_path  # Update the global VIDEO_PATH
-        print("zone Video, Video path:", VIDEO_PATH)
-    
-    return {'message': "Video uploaded successfully"}, 200
-
 @app.route('/zone_image', methods=['GET'])
 def zone_image():
     """
@@ -445,6 +422,111 @@ def zone_image():
     # Return the URL of the saved image
     return jsonify({"image_url": url_for('cached_image', filename=image_filename)})
 
+
+def process_video(video_path, csv_file_path, fps):
+    """
+    Function to process the video and progressively write results to a CSV file in the background.
+    """
+    cap = cv2.VideoCapture(video_path)
+
+    # Create the CSV file with headers based on class_map
+    with open(csv_file_path, mode='w', newline='') as csv_file:
+        fieldnames = ['frameNumber'] + list(class_map.values())
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+            if frame_number % int(fps) == 0:  # Extract one frame per second
+                temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
+                cv2.imwrite(temp_frame_path, frame)
+                results, boxed_image_path = process_image(temp_frame_path)
+                print("Results for frame", frame_number, ":", results)
+                
+                # Create a dictionary for the CSV row with 'nan' if a class is not detected
+                row = {'frameNumber': frame_number}
+                for class_name in class_map.values():
+                    detected = next((result for result in results if class_name in result), None)
+                    if detected:
+                        row[class_name] = list(detected.values())[0]
+                    else:
+                        row[class_name] = 'nan'
+                
+                # Write the row to the CSV file
+                writer.writerow(row)
+    
+    cap.release()
+
+@app.route('/zone_video', methods=['POST'])
+def zone_video():
+    """
+    Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
+    """
+    global VIDEO_PATH
+    print("Video upload request received")
+    
+    if 'video' not in request.files:
+        return {'error': "No video part in the request"}, 400
+    
+    video_file = request.files['video']
+    
+    if video_file.filename == '':
+        return {'error': "No selected file"}, 400
+    
+    video_path = os.path.join(cache_dir, video_file.filename)
+    
+    # Save the uploaded video
+    video_file.save(video_path)
+    print("Video saved successfully at:", video_path)
+    
+    if os.path.exists(video_path):
+        VIDEO_PATH = video_path  # Update the global VIDEO_PATH
+        print("Video path updated:", VIDEO_PATH)
+    
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.release()
+
+    # Generate a CSV file name based on the current date
+    current_date = datetime.now().strftime('%Y_%m_%d')
+    csv_file_path = os.path.join(cache_dir, f'{current_date}.csv')
+    print("CSV file will be saved at:", csv_file_path)
+
+    # Process the video in a background thread
+    threading.Thread(target=process_video, args=(video_path, csv_file_path, fps)).start()
+
+    return {'message': "Video uploaded successfully. Processing started."}, 200
+
+def stream_csv(file_path):
+    """
+    Stream the CSV file content line by line.
+    """
+    def generate():
+        with open(file_path, mode='r', newline='') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                yield json.dumps(row) + '\n'
+    
+    return Response(generate(), mimetype='application/json')
+
+@app.route('/data_csv', methods=['GET'])
+def data_csv():
+    """
+    Stream the CSV file generated from video processing as JSON data.
+    """
+    # Get the current date to locate the correct CSV file
+    current_date = datetime.now().strftime('%Y_%m_%d')
+    csv_file_path = os.path.join(cache_dir, f'{current_date}.csv')
+
+    print("Files in cache_dir:", os.listdir(cache_dir))  # Debug: list files in the cache directory
+
+    if os.path.exists(csv_file_path):
+        return stream_csv(csv_file_path)
+    else:
+        return {'error': 'CSV file not found or not ready yet'}, 404
 
 if __name__ == '__main__':
     app.run(debug=True)
