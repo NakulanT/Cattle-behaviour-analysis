@@ -106,9 +106,11 @@ def process_image(image_path):
     
     detection_model_result = behaviour_model.predict(image_path, conf=0.45)
     for result in detection_model_result:
+        print("result: ", result)
         cropped_images = display_cropped_images(result)
         
         for detected_area, x_offset, y_offset, behavior_class_id in cropped_images:
+            
             shape_classes = shape_finder(detected_area, x_offset, y_offset, result.orig_img.shape)
 
             behavior_name = behaviours.get(int(behavior_class_id.item()), "Unknown")
