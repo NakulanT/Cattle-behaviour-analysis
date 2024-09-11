@@ -1,48 +1,62 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 
-const WeatherImpactLineChart = () => {
-  const [chartData, setChartData] = useState([]);
+const WeatherImpactStackedBarChart = ({ trendType, date }) => {
+  const [chartData, setChartData] = useState(null);
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/api/behavior/weather_impact')
-      .then(response => {
-        const weatherData = response.data.weather_impact;
-        const weatherConditions = Object.keys(weatherData['Lying Time (min)']);
-
-        const formattedData = weatherConditions.map(condition => ({
-          name: condition,
-          'Lying Time': weatherData['Lying Time (min)'][condition],
-          'Standing Time': weatherData['Standing Time (min)'][condition],
-          'Eating Time': weatherData['Eating Time (min)'][condition]
-        }));
-
-        setChartData(formattedData);
+    if (trendType && date) {
+      axios.get(`http://127.0.0.1:5000/api/behavior/weather_impact`, {
+        params: {
+          trend_type: trendType,
+          date: date
+        }
       })
-      .catch(error => {
-        console.error('Error fetching weather impact data:', error);
-      });
-  }, []);
+        .then(response => {
+          const weatherData = response.data.weather_impact;
+          const weatherConditions = Object.keys(weatherData['Lying Time (min)']);
+
+          const formattedData = weatherConditions.map(condition => ({
+            name: condition,
+            'Lying Time': weatherData['Lying Time (min)'][condition],
+            'Standing Time': weatherData['Standing Time (min)'][condition],
+            'Eating Time': weatherData['Eating Time (min)'][condition]
+          }));
+
+          setChartData(formattedData);
+        })
+        .catch(error => {
+          console.error('Error fetching weather impact data:', error);
+        });
+    }
+  }, [trendType, date]);  // Re-fetch data when trendType or date changes
 
   return (
-    <div style={{ width: '100%', height: 400 }}>
-      <ResponsiveContainer>
-        <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Line type="monotone" dataKey="Lying Time" stroke="#8884d8" />
-          <Line type="monotone" dataKey="Standing Time" stroke="#82ca9d" />
-          <Line type="monotone" dataKey="Eating Time" stroke="#ffc658" />
-        </LineChart>
-      </ResponsiveContainer>
+    <div>
+      {/* Stacked Bar Chart for Weather Impact */}
+      <div style={{ width: '100%', height: 400, marginTop: '20px' }}>
+        {chartData ? (
+          <ResponsiveContainer>
+            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="Lying Time" stackId="a" fill="#8884d8" />
+              <Bar dataKey="Standing Time" stackId="a" fill="#82ca9d" />
+              <Bar dataKey="Eating Time" stackId="a" fill="#ffc658" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <p>Loading chart data...</p>
+        )}
+      </div>
     </div>
   );
 };
 
-export default WeatherImpactLineChart;
+export default WeatherImpactStackedBarChart;
