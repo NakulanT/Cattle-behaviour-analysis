@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const DrawZone = () => {
+const DrawZone = ({ setZoneSaved }) => {
   const defaultPoints = [
-    { x: 270, y: 270 }, // top-left
-    { x: 370, y: 270 }, // top-right
-    { x: 270, y: 370 }, // bottom-left
-    { x: 370, y: 370 }, // bottom-right
+    { x: 270, y: 270 },
+    { x: 370, y: 270 },
+    { x: 270, y: 370 },
+    { x: 370, y: 370 },
   ];
 
   const [points, setPoints] = useState(defaultPoints);
@@ -16,24 +16,21 @@ const DrawZone = () => {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
   const imageRef = useRef(null);
-  const [refreshFlag, setRefreshFlag] = useState(0); // Add refresh flag to trigger full component reload
+  const [refreshFlag, setRefreshFlag] = useState(0);
 
-  // Function to fetch the image URL
   const fetchImage = () => {
     axios.get('http://127.0.0.1:5000/zone_image')
       .then(response => {
-        console.log('Image URL fetched:', response.data.image_url);
         setImageUrl("http://127.0.0.1:5000" + response.data.image_url);
       })
       .catch(error => {
-        console.error('There was an error fetching the image URL!', error);
         setError('Failed to fetch image URL.');
       });
   };
 
   useEffect(() => {
     fetchImage();
-  }, [refreshFlag]); // Re-fetch image when refreshFlag changes
+  }, [refreshFlag]);
 
   useEffect(() => {
     if (imageUrl) {
@@ -58,18 +55,16 @@ const DrawZone = () => {
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     ctx.drawImage(imageRef.current, 0, 0, 640, 640);
 
-    // Draw the quadrilateral connecting the points
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y); // Move to top-left
-    ctx.lineTo(points[1].x, points[1].y); // Line to top-right
-    ctx.lineTo(points[3].x, points[3].y); // Line to bottom-right
-    ctx.lineTo(points[2].x, points[2].y); // Line to bottom-left
-    ctx.closePath(); // Close the quadrilateral
+    ctx.moveTo(points[0].x, points[0].y);
+    ctx.lineTo(points[1].x, points[1].y);
+    ctx.lineTo(points[3].x, points[3].y);
+    ctx.lineTo(points[2].x, points[2].y);
+    ctx.closePath();
     ctx.stroke();
 
-    // Draw the points
     points.forEach(point => {
       ctx.fillStyle = 'blue';
       ctx.beginPath();
@@ -78,16 +73,36 @@ const DrawZone = () => {
     });
   };
 
+  const handleSave = async () => {
+    const zone = {
+      topLeft: points[0],
+      topRight: points[1],
+      bottomLeft: points[2],
+      bottomRight: points[3],
+    };
+
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/coordinates', zone, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.data) {
+        alert(`Zone saved: ${JSON.stringify(response.data)}`);
+        setZoneSaved(true);  // Acknowledge that the zone has been saved
+      } else {
+        alert('Failed to save zone.');
+      }
+    } catch (error) {
+      alert('Error saving zone.');
+    }
+  };
+
   const handleMouseDown = (e) => {
     const mouseX = e.nativeEvent.offsetX;
     const mouseY = e.nativeEvent.offsetY;
 
-    // Check if the mouse is over any point
     const pointIndex = points.findIndex(point => {
-      return (
-        Math.abs(mouseX - point.x) < 10 &&
-        Math.abs(mouseY - point.y) < 10
-      );
+      return Math.abs(mouseX - point.x) < 10 && Math.abs(mouseY - point.y) < 10;
     });
 
     if (pointIndex !== -1) {
@@ -110,67 +125,42 @@ const DrawZone = () => {
     setDraggingPointIndex(null);
   };
 
-  const handleSave = async () => {
-    const zone = {
-      topLeft: points[0],
-      topRight: points[1],
-      bottomLeft: points[2],
-      bottomRight: points[3],
-    };
-
-    try {
-      const response = await axios.post('http://127.0.0.1:5000/coordinates', zone, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (response.data) {
-        alert(`Zone saved: ${JSON.stringify(response.data)}`);
-      } else {
-        console.error('Received an empty response.');
-        alert('Failed to save zone. Received an empty response.');
-      }
-    } catch (error) {
-      console.error('Error saving zone:', error);
-      alert('Error saving zone.');
-    }
-  };
-
-  // Function to refresh the entire component, including the image and points
   const handleRefresh = () => {
-    setPoints(defaultPoints); // Reset points
-    setRefreshFlag(prev => prev + 1); // Trigger a re-fetch by changing the refresh flag
+    setPoints(defaultPoints);
+    setRefreshFlag(prev => prev + 1);
   };
 
   return (
-    <div className="flex flex-col items-center">
-      <h1 className="text-2xl font-bold my-4">Draw Zone on Image</h1>
-      {error ? (
-        <p className="text-red-500">{error}</p>
-      ) : (
-        <canvas
-          ref={canvasRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          className="border border-black cursor-crosshair"
-          style={{ width: '640px', height: '640px' }}
-        />
-      )}
-      <div className="mt-4">
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 bg-green-500 text-white rounded mr-4"
-        >
-          Save
-        </button>
-        <button
-          onClick={handleRefresh}
-          className="px-4 py-2 bg-blue-500 text-white rounded"
-        >
-          Refresh
-        </button>
-      </div>
-    </div>
+<div className="bg-[#1e293b] rounded-lg shadow-lg p-6 max-w-4xl w-full h-full flex flex-col items-center justify-center">
+  <h1 className="text-2xl font-bold mb-4 text-[#e2e8f0] text-center">Draw Zone on Image</h1>
+  {error ? (
+    <p className="text-[#38bdf8] text-sm text-center">{error}</p>
+  ) : (
+    <canvas
+      ref={canvasRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      className="border border-[#e2e8f0] cursor-crosshair rounded-lg"
+      style={{ width: '640px', height: '640px' }}
+    />
+  )}
+  <div className="mt-4 flex w-full justify-center gap-4">
+    <button
+      onClick={handleSave}
+      className="w-full py-2 text-lg font-semibold rounded-lg bg-[#38bdf8] text-[#0f172a] hover:bg-blue-400 transition duration-300 ease-in-out"
+    >
+      Save
+    </button>
+    <button
+      onClick={handleRefresh}
+      className="w-full py-2 text-lg font-semibold rounded-lg bg-[#38bdf8] text-[#0f172a] hover:bg-blue-400 transition duration-300 ease-in-out"
+    >
+      Refresh
+    </button>
+  </div>
+</div>
+
   );
 };
 

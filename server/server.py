@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory, url_for , send_file ,Response
+from flask import Flask, request, jsonify, send_from_directory, url_for , send_file,Response
 import os
 import cv2
 import torch
@@ -14,6 +15,9 @@ import time
 import json
 from flask_cors import CORS
 import random
+from datetime import datetime, timedelta
+from datetime import datetime, timedelta
+import calendar
 from datetime import datetime
 import csv
 import shutil
@@ -518,6 +522,734 @@ def zone_image():
     # Return the URL of the saved image
     return jsonify({"image_url": url_for('cached_image', filename=image_filename)})
 
+DATA_DIR = 'cattle_behavior_data/'
+
+
+
+# Helper function to convert minutes to hours for specified columns
+def convert_minutes_to_hours(df, time_cols):
+    df[time_cols] = df[time_cols] / 60  # Divide minutes by 60 to get hours
+    return df
+
+
+# # Helper function to load data
+def load_behavior_data(date_range):
+    data_list = []
+    for date_str in date_range:
+        file_path = os.path.join(DATA_DIR, f"{date_str}.csv")
+        if os.path.exists(file_path):
+            data_list.append(pd.read_csv(file_path))
+    
+    if data_list:
+        return pd.concat(data_list, ignore_index=True)
+    else:
+        return None
+
+def generate_date_range(start_date, end_date):
+    date_range = pd.date_range(start=start_date, end=end_date)
+    return [date.strftime('%Y-%m-%d') for date in date_range]
+
+def convert_to_hours_minutes(decimal_hours):
+    """Convert decimal hours to 'X hours Y minutes' format."""
+    hours = int(decimal_hours)
+    minutes = int((decimal_hours - hours) * 60)
+    return f"{hours} hours and {minutes} minutes"
+
+
+# Filter cows based on behavior for the selected period
+def filter_cows(data, period):
+    data.columns = data.columns.str.strip()
+    
+    # Group by 'Cow ID' and sum the time spent in different behaviors over the selected period
+    grouped_data = data.groupby('Cow ID').agg({
+        'Lying Time (min)': 'sum',
+        'Eating Time (min)': 'sum',
+        'Standing Time (min)': 'sum'
+    })
+    
+    # Convert the summed times into hours and minutes
+    grouped_data['Lying Time (hours)'] = grouped_data['Lying Time (min)'] / 60
+    grouped_data['Eating Time (hours)'] = grouped_data['Eating Time (min)'] / 60
+    grouped_data['Standing Time (hours)'] = grouped_data['Standing Time (min)'] / 60
+
+    # Filtering logic for different behavior conditions based on the selected period
+    if period == 'daily':
+        # Daily filter thresholds
+        eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < 5]
+        eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > 6]
+        lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < 8]
+        lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > 12]
+        standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < 4]
+        standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > 8]
+    elif period == 'weekly':
+        # Weekly filter thresholds (times 7 days)
+        lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < (8 * 7)]
+        lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > (12 * 7)]
+        eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < (3 * 7)]
+        eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > (6 * 7)]
+        standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < (4 * 7)]
+        standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > (8 * 7)]
+    elif period == 'monthly':
+        # Monthly filter thresholds (approx 30 days)
+        lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < (8 * 30)]
+        lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > (12 * 30)]
+        eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < (3 * 30)]
+        eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > (6 * 30)]
+        standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < (4 * 30)]
+        standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > (8 * 30)]
+
+
+        # Convert decimal hours to 'X hours Y minutes' format for each filtered group
+    def apply_time_format(group):
+        group['Lying Time'] = group['Lying Time (hours)'].apply(convert_to_hours_minutes)
+        group['Eating Time'] = group['Eating Time (hours)'].apply(convert_to_hours_minutes)
+        group['Standing Time'] = group['Standing Time (hours)'].apply(convert_to_hours_minutes)
+        return group.drop(columns=['Lying Time (hours)', 'Eating Time (hours)', 'Standing Time (hours)'])
+
+    # Apply the time formatting to each group
+    lying_less_than_8 = apply_time_format(lying_less_than_8)
+    lying_more_than_12 = apply_time_format(lying_more_than_12)
+    eating_less_than_3 = apply_time_format(eating_less_than_3)
+    eating_more_than_6 = apply_time_format(eating_more_than_6)
+    standing_less_than_4 = apply_time_format(standing_less_than_4)
+    standing_more_than_8 = apply_time_format(standing_more_than_8)
+    # Return all the filtered groups as a dictionary
+    return {
+        'lying_less_than_8': lying_less_than_8.reset_index(),
+        'lying_more_than_12': lying_more_than_12.reset_index(),
+        'eating_less_than_3': eating_less_than_3.reset_index(),
+        'eating_more_than_6': eating_more_than_6.reset_index(),
+        'standing_less_than_4': standing_less_than_4.reset_index(),
+        'standing_more_than_8': standing_more_than_8.reset_index()
+    }
+
+# Flask route for cow behavior analysis
+@app.route('/cow_behavior', methods=['GET'])
+def get_cow_behavior():
+    date_str = request.args.get('date')
+    period = request.args.get('period')  # 'daily', 'weekly', 'monthly'
+    
+    if not date_str:
+        return jsonify({'error': 'Please provide a valid date'}), 400
+
+    try:
+        start_date = datetime.strptime(date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+    if period == 'daily':
+        end_date = start_date
+    elif period == 'weekly':
+        end_date = start_date + timedelta(days=6)
+    elif period == 'monthly':
+        end_date = (start_date + pd.DateOffset(months=1)) - timedelta(days=1)
+    else:
+        return jsonify({'error': 'Invalid period. Choose from "daily", "weekly", or "monthly".'}), 400
+
+    date_range = generate_date_range(start_date, end_date)
+
+    data = load_behavior_data(date_range)
+    
+    if data is not None:
+        filtered_data = filter_cows(data, period)
+        
+        result = {}
+        for key, df in filtered_data.items():
+            result[key] = df.to_dict(orient='records')
+        
+        return jsonify(result)
+    else:
+        return jsonify({'error': 'Data not found for the given date range'}), 404
+
+
+
+
+
+
+# Route for streaming numbers
+@app.route('/stream')
+def stream():
+    def generate():
+        total = random.randint(42, 50)  # Start with a random value between 42 and 50
+        last_update_time = time.time()  # To keep track of the last time we modified the total
+        while True:  # Infinite loop to keep streaming
+            current_time = time.time()
+
+            # Every 15 seconds, either add or subtract a random value (1-5)
+            if current_time - last_update_time >= 15:
+                # Randomly decide whether to add or subtract
+                operation = random.choice(['add', 'subtract'])
+                change_value = random.randint(1, 5)
+
+                if operation == 'subtract':
+                    total -= change_value
+                    if total < 42:  # Ensure the total doesn't go below 42
+                        total = 42
+                elif operation == 'add':
+                    total += change_value
+                    if total > 50:  # Ensure the total doesn't go above 50
+                        total = 50
+
+                last_update_time = current_time
+
+            # Send the total number every 10 seconds
+            yield f"data: {total}\n\n"
+            time.sleep(10)  # Send response every 10 seconds
+
+    return Response(generate(), mimetype='text/event-stream')
+
+
+
+def get_weekly_behavior(end_date_str, cow_id=None):
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+    start_date = end_date - timedelta(days=6)
+    dates = [start_date + timedelta(days=i) for i in range(7)]
+    
+    weekly_data = []
+    for date in dates:
+        date_str = date.strftime('%Y-%m-%d')
+        data = load_behavior_data(date_str)
+        if data is not None:
+            weekly_data.append(data)
+    
+    if weekly_data:
+        weekly_df = pd.concat(weekly_data)
+        
+        # Clean column names and ensure proper types
+        weekly_df.columns = weekly_df.columns.str.strip()
+        weekly_df['Cow ID'] = weekly_df['Cow ID'].astype(str)
+        numeric_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Temperature (°C)']
+        weekly_df[numeric_cols] = weekly_df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        weekly_df[numeric_cols].fillna(0, inplace=True)
+
+        # Filter by cow_id if provided
+        if cow_id:
+            weekly_df = weekly_df[weekly_df['Cow ID'] == cow_id]
+        
+        # Group by 'Cow ID' and calculate the total sum of numeric columns
+        weekly_trends = weekly_df.groupby('Cow ID')[numeric_cols].sum()
+        
+        # Convert time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        weekly_trends = convert_minutes_to_hours(weekly_trends, time_cols)
+        
+        return weekly_trends.to_dict()
+    else:
+        return {}
+
+
+def get_daily_behavior(date_str, cow_id=None):
+    # Load behavior data for the specified date
+    data = load_behavior_data(date_str)
+    
+    if data is not None:
+        # Clean column names and ensure proper types
+        data.columns = data.columns.str.strip()
+        data['Cow ID'] = data['Cow ID'].astype(str)
+        numeric_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Temperature (°C)']
+        data[numeric_cols] = data[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        data[numeric_cols] = data[numeric_cols].copy()
+
+        data[numeric_cols].fillna(0, inplace=True)
+
+        # Filter by cow_id if provided
+        if cow_id:
+            data = data[data['Cow ID'] == cow_id]
+
+        # Group by 'Cow ID' and calculate the sum for the day
+        daily_trends = data.groupby('Cow ID')[numeric_cols].sum()
+        
+        # Convert time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        daily_trends = convert_minutes_to_hours(daily_trends, time_cols)
+        
+        return daily_trends.to_dict()
+    else:
+        return pd.DataFrame()
+
+
+
+def get_monthly_behavior(year_month_str, cow_id=None):
+    year, month = map(int, year_month_str.split('-'))
+    _, num_days_in_month = calendar.monthrange(year, month)
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, num_days_in_month)
+    
+    dates = [start_date + timedelta(days=i) for i in range(num_days_in_month)]
+    
+    monthly_data = []
+    for date in dates:
+        date_str = date.strftime('%Y-%m-%d')
+        data = load_behavior_data(date_str)
+        if data is not None:
+            monthly_data.append(data)
+    
+    if monthly_data:
+        monthly_df = pd.concat(monthly_data)
+        
+        # Clean column names and ensure proper types
+        monthly_df.columns = monthly_df.columns.str.strip()
+        monthly_df['Cow ID'] = monthly_df['Cow ID'].astype(str)
+        numeric_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Temperature (°C)']
+        monthly_df[numeric_cols] = monthly_df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+
+        monthly_df[numeric_cols].fillna(0, inplace=True)
+
+        # Filter by cow_id if provided
+        if cow_id:
+            monthly_df = monthly_df[monthly_df['Cow ID'] == cow_id]
+        
+        # Group by 'Cow ID' and calculate the total sum of numeric columns for the month
+        monthly_trends = monthly_df.groupby('Cow ID')[numeric_cols].sum()
+        
+        # Convert time columns from minutes to hours
+        time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+        monthly_trends = convert_minutes_to_hours(monthly_trends, time_cols)
+
+        return monthly_trends.to_dict()
+    else:
+        return {}
+
+
+
+@app.route('/api/behavior/trends', methods=['GET'])
+def behavior_trends():
+    # Get the type of trend from query parameters: 'weekly', 'monthly', or 'daily'
+    trend_type = request.args.get('trend_type', 'daily')  # Default to 'daily' if not provided
+    date = request.args.get('date')  # The date parameter (should be in 'YYYY-MM-DD' format)
+    cow_id = request.args.get('cow_id')  # Optional cow ID parameter
+
+    if not date:
+        return jsonify({'error': 'Date is required'}), 400
+
+    if trend_type == 'daily':
+        # Daily behavior trends
+        data = load_behavior_data(date)
+        if data is not None:
+            daily_trends = get_daily_behavior(date, cow_id)  # Pass cow_id
+            return jsonify({'trends': daily_trends})
+        else:
+            return jsonify({'error': 'Date not found'}), 404
+
+    elif trend_type == 'weekly':
+        # Weekly behavior trends
+        weekly_trends = get_weekly_behavior(date, cow_id)  # Pass cow_id
+        if weekly_trends:
+            return jsonify({'trends': weekly_trends})
+        else:
+            return jsonify({'error': 'Data not found for the week'}), 404
+
+    elif trend_type == 'monthly':
+        # Monthly behavior trends
+        try:
+            year_month = '-'.join(date.split('-')[:2])  # Extract 'YYYY-MM' from 'YYYY-MM-DD'
+            monthly_trends = get_monthly_behavior(year_month, cow_id)  # Pass cow_id
+            if monthly_trends:
+                return jsonify({'trends': monthly_trends})
+            else:
+                return jsonify({'error': 'Data not found for the month'}), 404
+        except ValueError:
+            return jsonify({'error': 'Invalid date format'}), 400
+
+    else:
+        # Invalid trend_type
+        return jsonify({'error': 'Invalid trend_type. Use "daily", "weekly", or "monthly".'}), 400
+
+
+
+    
+# Function to load data for a specific date range or the entire directory
+def load_behavior_data_with_weather(start_date=None, end_date=None):
+    all_data = []
+    
+    # List all files in the directory
+    for file_name in os.listdir(DATA_DIR):
+        # Extract the date from the file name (e.g., 2022-09-07.csv -> 2022-09-07)
+        file_date_str = file_name.replace('.csv', '')
+
+        # Check if the date falls within the desired range (if specified)
+        if start_date and end_date:
+            if not (start_date <= file_date_str <= end_date):
+                continue
+
+        # Construct full file path
+        file_path = os.path.join(DATA_DIR, file_name)
+
+        # Load CSV data
+        data = pd.read_csv(file_path)
+        all_data.append(data)
+
+    # Combine all the data into a single DataFrame
+    if all_data:
+        combined_data = pd.concat(all_data, ignore_index=True)
+        return combined_data
+    else:
+        print(f"No data found between {start_date} and {end_date}")
+        return None
+
+
+
+def get_week_start_end(date_str):
+    # Convert the input string to a date object
+    date = datetime.strptime(date_str, '%Y-%m-%d')
+
+    # Find the start of the week (Monday)
+    week_start = date - timedelta(days=date.weekday())
+
+    # Find the end of the week (Sunday)
+    week_end = week_start + timedelta(days=6)
+
+    # Return the start and end dates as strings in 'YYYY-MM-DD' format
+    return week_start.strftime('%Y-%m-%d'), week_end.strftime('%Y-%m-%d')
+
+
+
+
+def get_month_start_end(year_month):
+    # Split 'YYYY-MM' into year and month components
+    year, month = map(int, year_month.split('-'))
+
+    # Calculate the first day of the month
+    month_start = datetime(year, month, 1)
+
+    # Calculate the last day of the month
+    _, last_day = calendar.monthrange(year, month)
+    month_end = datetime(year, month, last_day)
+
+    # Return the start and end dates as strings in 'YYYY-MM-DD' format
+    return month_start.strftime('%Y-%m-%d'), month_end.strftime('%Y-%m-%d')
+
+# API endpoint to return weather-based behavior trends
+@app.route('/api/behavior/weather_impact', methods=['GET'])
+def weather_impact():
+    # Get the type of trend from query parameters: 'weekly', 'monthly', or 'daily'
+    trend_type = request.args.get('trend_type', 'daily')  # Default to 'daily' if not provided
+    date = request.args.get('date')  # The date parameter (should be in 'YYYY-MM-DD' format)
+
+    if not date:
+        return jsonify({'error': 'Date is required'}), 400
+
+    if trend_type == 'daily':
+        # Load daily behavior data with weather for the specified date
+        data = load_behavior_data_with_weather(date, date)
+        if data is not None:
+            weather_impact_totals = data.groupby('Weather Condition')[['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']].sum()
+            time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+            weather_impact_totals = convert_minutes_to_hours(weather_impact_totals, time_cols)
+            weather_impact_dict = weather_impact_totals.to_dict()
+            return jsonify({'weather_impact': weather_impact_dict})
+        else:
+            return jsonify({'error': 'No data found for the given date'}), 404
+
+    elif trend_type == 'weekly':
+        # Calculate the start and end date of the week containing the given date
+        week_start, week_end = get_week_start_end(date)
+        data = load_behavior_data_with_weather(week_start, week_end)
+        if data is not None:
+            weather_impact_totals = data.groupby('Weather Condition')[['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']].sum()
+            time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+            weather_impact_totals = convert_minutes_to_hours(weather_impact_totals, time_cols)
+            weather_impact_dict = weather_impact_totals.to_dict()
+            return jsonify({'weather_impact': weather_impact_dict})
+        else:
+            return jsonify({'error': 'No data found for the given week'}), 404
+
+    elif trend_type == 'monthly':
+        # Extract the month and year from the provided date
+        try:
+            year_month = '-'.join(date.split('-')[:2])  # Extract 'YYYY-MM' from 'YYYY-MM-DD'
+            month_start, month_end = get_month_start_end(year_month)
+            data = load_behavior_data_with_weather(month_start, month_end)
+            if data is not None:
+                weather_impact_totals = data.groupby('Weather Condition')[['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']].sum()
+                time_cols = ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)']
+                weather_impact_totals = convert_minutes_to_hours(weather_impact_totals, time_cols)
+                weather_impact_dict = weather_impact_totals.to_dict()
+                return jsonify({'weather_impact': weather_impact_dict})
+            else:
+                return jsonify({'error': 'No data found for the given month'}), 404
+        except ValueError:
+            return jsonify({'error': 'Invalid date format'}), 400
+
+    else:
+        # Invalid trend_type
+        return jsonify({'error': 'Invalid trend_type. Use "daily", "weekly", or "monthly".'}), 400
+
+
+
+
+
+
+def detect_health_issues(behavior_data):
+    """
+    Detect potential health issues based on behavior data.
+    Args:
+        behavior_data: DataFrame or dictionary containing behavior data for cows.
+    Returns:
+        A dictionary containing potential health issues for each cow.
+    """
+
+    # Convert to DataFrame if it's a dictionary
+    if isinstance(behavior_data, dict):
+        behavior_data = pd.DataFrame.from_dict(behavior_data)
+
+    health_issues = {}
+
+    for cow_id, row in behavior_data.iterrows():
+        issues = []
+
+        # Lying Time
+        lying_time_hours = row['Lying Time (min)'] / 60
+        if lying_time_hours < 8:
+            issues.append('Possible lameness, discomfort, or heat stress (Lying Time < 8 hours)')
+        elif lying_time_hours > 12:
+            issues.append('Postpartum fatigue, metabolic disorders, or illness (Lying Time > 12 hours)')
+
+        # Eating Time
+        eating_time_hours = row['Eating Time (min)'] / 60
+        if eating_time_hours < 3:
+            issues.append('Poor feed quality or illness (Eating Time < 3 hours)')
+        elif eating_time_hours > 6:
+            issues.append('Nutritional deficiency or stress-related overeating (Eating Time > 6 hours)')
+
+        # Standing Time
+        standing_time_hours = row['Standing Time (min)'] / 60
+        if standing_time_hours < 4:
+            issues.append('Possible lameness or fatigue (Standing Time < 4 hours)')
+        elif standing_time_hours > 8:
+            issues.append('Inadequate lying area or stress (Standing Time > 8 hours)')
+
+        # If no issues were detected, mark cow as healthy
+        if not issues:
+            issues.append('No health issues detected')
+
+        health_issues[cow_id] = issues
+
+    return health_issues
+
+
+@app.route('/api/behavior/health', methods=['GET'])
+def health_monitoring():
+    # Get the type of trend and date from query parameters
+    trend_type = request.args.get('trend_type', 'daily')
+    date = request.args.get('date')
+
+    if not date:
+        return jsonify({'error': 'Date is required'}), 400
+
+    # Load behavior data (use existing helper functions for daily, weekly, or monthly)
+    if trend_type == 'daily':
+        behavior_data = get_daily_behavior(date)
+    elif trend_type == 'weekly':
+        behavior_data = get_weekly_behavior(date)
+    elif trend_type == 'monthly':
+        behavior_data = get_monthly_behavior(date)
+    else:
+        return jsonify({'error': 'Invalid trend_type'}), 400
+
+    if not behavior_data:
+        return jsonify({'error': 'No data found for the given date or period'}), 404
+
+    # Detect health issues based on the behavior data
+    health_issues = detect_health_issues(behavior_data)
+
+    return jsonify({'health_issues': health_issues})
+
+
+
+
+# Determine the predominant behavior for a cow in a given time frame
+def determine_behavior(row):
+    behavior_times = {
+        'Lying': row['Lying Time (min)'],
+        'Standing': row['Standing Time (min)'],
+        'Eating': row['Eating Time (min)']
+    }
+    return max(behavior_times, key=behavior_times.get)
+
+# Track transitions between behaviors for each cow
+def track_transitions(start_date='2022-09-08', end_date='2022-09-14'):
+    print("track_transitions")
+    print("track_transitions")
+    print("track_transitions")
+    print("track_transitions")
+    print("track_transitions")
+    print("track_transitions")
+    print("track_transitions")
+    print("track_transitions")
+    print("track_transitions")
+    print(start_date)
+    print(start_date)
+    print(start_date)
+    print(start_date)
+    print("start_date")
+    print("end_date")
+    print(end_date)
+    print(end_date)
+    print(end_date)
+    print(end_date)
+    print(end_date)
+    behaviors = ['Lying', 'Standing', 'Eating']  # The behaviors we're tracking
+
+    transitions = defaultdict(lambda: {behavior: {next_behavior: 0 for next_behavior in behaviors} for behavior in behaviors})
+
+    current_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
+    # Iterate over each date in the range
+    while current_date <= end_date:
+        date_str = current_date.strftime('%Y-%m-%d')
+        df = load_behavior_data(date_str)
+        
+        if df is not None:
+            df['Predominant Behavior'] = df.apply(determine_behavior, axis=1)
+
+            # Track transitions for each cow
+            for cow_id in df['Cow ID'].unique():
+                cow_data = df[df['Cow ID'] == cow_id]
+                previous_behavior = None
+                
+                for _, row in cow_data.iterrows():
+                    current_behavior = row['Predominant Behavior']
+                    if previous_behavior is not None and previous_behavior != current_behavior:
+                        transitions[cow_id][previous_behavior][current_behavior] += 1
+                    previous_behavior = current_behavior
+
+        current_date += pd.DateOffset(days=1)
+
+    return transitions
+
+# API endpoint to return behavior transitions
+@app.route('/api/behavior/transitions', methods=['GET'])
+def behavior_transitions():
+    # Get the type of trend from query parameters: 'daily', 'weekly', or 'monthly'
+    trend_type = request.args.get('trend_type', 'daily')  # Default to 'daily' if not provided
+    date = request.args.get('date')  # The date parameter (should be in 'YYYY-MM-DD' format)
+    print(date)
+    print(date)
+    print(date)
+    print(date)
+    print(date)
+    print(date)
+    print(date)
+    print(date)
+    print(date)
+    print(date)
+    if not date:
+        return jsonify({'error': 'Date is required'}), 400
+
+    try:
+        # Parse the date
+        date_obj = datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use "YYYY-MM-DD".'}), 400
+
+    if trend_type == 'daily':
+        # Track behavior transitions for a single day
+        transitions = track_transitions()
+       
+        print("track_transitions")
+        print("track_transitions")
+        print("track_transitions")
+        print("track_transitions")
+        print("track_transitions")
+        print("track_transitions")
+        print("track_transitions")
+        print("track_transitions")
+        print("track_transitions")
+        print(track_transitions)
+        print(track_transitions)
+        print(track_transitions)
+        if transitions:
+            return jsonify(transitions)
+        else:
+            return jsonify({'error': 'No data found for the given date'}), 404
+
+    elif trend_type == 'weekly':
+        # Calculate the start and end date of the week containing the given date
+        week_start = (date_obj - timedelta(days=date_obj.weekday())).strftime('%Y-%m-%d')  # Monday
+        week_end = (date_obj + timedelta(days=6 - date_obj.weekday())).strftime('%Y-%m-%d')  # Sunday
+        transitions = track_transitions(week_start, week_end)
+        if transitions:
+            return jsonify(transitions)
+        else:
+            return jsonify({'error': 'No data found for the given week'}), 404
+
+    elif trend_type == 'monthly':
+        # Calculate the start and end date of the month containing the given date
+        month_start = date_obj.replace(day=1).strftime('%Y-%m-%d')
+        next_month = date_obj.replace(day=28) + timedelta(days=4)  # Go to the next month and rewind to get the last day
+        month_end = (next_month - timedelta(days=next_month.day)).strftime('%Y-%m-%d')
+        transitions = track_transitions(month_start, month_end)
+        if transitions:
+            return jsonify(transitions)
+        else:
+            return jsonify({'error': 'No data found for the given month'}), 404
+
+    else:
+        # Invalid trend_type
+        return jsonify({'error': 'Invalid trend_type. Use "daily", "weekly", or "monthly".'}), 400
+
+# Function to load and filter data by date range
+def load_feeding_data(start_date=None, end_date=None):
+    directory = 'cattle_behavior_data/'  # Path to your CSV directory
+    all_data = []
+
+    # Parse the start and end dates
+    if start_date:
+        start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    if end_date:
+        end_date = datetime.strptime(end_date, '%Y-%m-%d')
+
+    # Read all CSV files and filter by date
+    for file_name in os.listdir(directory):
+        file_date = datetime.strptime(file_name.replace('.csv', ''), '%Y-%m-%d')
+
+        if start_date and end_date:
+            if start_date <= file_date <= end_date:
+                file_path = os.path.join(directory, file_name)
+                data = pd.read_csv(file_path)
+                all_data.append(data)
+        else:
+            file_path = os.path.join(directory, file_name)
+            data = pd.read_csv(file_path)
+            all_data.append(data)
+
+    if all_data:
+        combined_data = pd.concat(all_data, ignore_index=True)
+        return combined_data[['Cow ID', 'Eating Time (min)']]
+    return None
+
+# API endpoint to get feeding efficiency data by date range
+@app.route('/api/feeding_efficiency', methods=['GET'])
+def feeding_efficiency():
+    # Get the date parameters from the query string (daily, weekly, or monthly)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Load data based on the provided date range
+    data = load_feeding_data(start_date, end_date)
+    if data is None:
+        return jsonify({"error": "No data available for the selected date range"}), 404
+
+    # Calculate the herd average eating time
+    herd_average = data['Eating Time (min)'].mean()
+
+    # Create a list of cows with their eating times and comparison to the average
+    result = []
+    for _, row in data.iterrows():
+        result.append({
+            'Cow ID': row['Cow ID'],
+            'Eating Time (min)': row['Eating Time (min)'],
+            'belowAverage': row['Eating Time (min)'] < herd_average
+        })
+
+    return jsonify({
+        'herdAverage': herd_average,
+        'feedingData': result
+    })
+
+
 
 # Define the base URL for your app (adjust as per your app's setup)
 
@@ -544,14 +1276,17 @@ def process_video(video_path, csv_file_path, fps):
             frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
             if frame_number % int(fps) == 0:  # Extract one frame per second
                 temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
-                cv2.imwrite(temp_frame_path, frame)
+                
+                #resize the frame to 640x640
+                resized_frame = cv2.resize(frame, (640, 640))
+                cv2.imwrite(temp_frame_path, resized_frame)
 
                 # Process the frame and get the results
                 results, boxed_image_path = process_image(temp_frame_path)
                 print(f"Results for frame {frame_number}: {results}")
 
                 # Create a dictionary for the CSV row with 'nan' if a class is not detected
-                row = {'frameNumber': frame_number}
+                row = {}
                 for class_name in class_map.values():
                     detected = next((result for result in results if class_name in result), None)
                     if detected:
@@ -566,9 +1301,10 @@ def process_video(video_path, csv_file_path, fps):
                 image_url = f"/cache/{os.path.basename(boxed_image_path)}"
 
                 # Add the frame number, results, and boxed image URL to the RESULTS dictionary
-                RESULTS[frame_number] = [row[1:], {"image_url": image_url}]
+                RESULTS[frame_number] = [row, {'frameNumber': frame_number ,"image_url": image_url}]
     
     cap.release()
+    print(results)
 
 
 @app.route('/zone_video', methods=['POST'])
