@@ -1,3 +1,4 @@
+from flask import Flask, request, jsonify, send_from_directory, url_for , send_file ,Response
 from flask import Flask, request, jsonify, send_from_directory, url_for , send_file,Response
 import os
 import cv2
@@ -17,6 +18,11 @@ import random
 from datetime import datetime, timedelta
 from datetime import datetime, timedelta
 import calendar
+from datetime import datetime
+import csv
+import shutil
+import threading
+from PIL import Image
 
 
 app = Flask(__name__)
@@ -35,6 +41,7 @@ shape_model = YOLO(os.path.join("models", "shape_detection_model.pt"))
 behaviours = {0: "Lying down", 1: "Eating", 2: "Standing"}
 
 VIDEO_PATH = ''  # Initialize the video path as an empty string
+COORDINATES = {}
 
 with open('static/class.json', 'r') as file:
     class_map = json.load(file)
@@ -74,7 +81,10 @@ def display_cropped_images(result):
 
     return detected_areas
 
-def draw_bounding_boxes(result, image_path):
+import os
+import cv2
+
+def draw_bounding_boxes(result, image_path, coordinates):
     img = cv2.imread(image_path)
 
     colors = {
@@ -84,6 +94,7 @@ def draw_bounding_boxes(result, image_path):
         "Unknown": (255, 255, 255)
     }
 
+    # Draw behavior bounding boxes
     for behavior_box in result.boxes:
         x1, y1, x2, y2 = map(int, behavior_box.xyxy[0])
         behavior_class_id = int(behavior_box.cls.item())
@@ -93,34 +104,112 @@ def draw_bounding_boxes(result, image_path):
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
         cv2.putText(img, behavior_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
+    # Draw the quadrilateral for coordinates
+    quad_points = [
+        (int(coordinates['topLeft']['x']), int(coordinates['topLeft']['y'])),
+        (int(coordinates['topRight']['x']), int(coordinates['topRight']['y'])),
+        (int(coordinates['bottomRight']['x']), int(coordinates['bottomRight']['y'])),
+        (int(coordinates['bottomLeft']['x']), int(coordinates['bottomLeft']['y']))
+    ]
+    
+    # Draw the quadrilateral (line connecting the points)
+    quad_color = (0, 255, 255)  # Yellow color for the quadrilateral
+    cv2.polylines(img, [np.array(quad_points)], isClosed=True, color=quad_color, thickness=2)
+
     boxed_image_path = os.path.join(cache_dir, "boxed_" + os.path.basename(image_path))
     cv2.imwrite(boxed_image_path, img)
 
     return boxed_image_path
 
+
+from shapely.geometry import Point, Polygon
+
+def is_point_in_quad(px, py, quad_coords):
+    """Check if a point (px, py) is inside the quadrilateral defined by quad_coords."""
+    polygon = Polygon([
+        (quad_coords['topLeft']['x'], quad_coords['topLeft']['y']),
+        (quad_coords['topRight']['x'], quad_coords['topRight']['y']),
+        (quad_coords['bottomRight']['x'], quad_coords['bottomRight']['y']),
+        (quad_coords['bottomLeft']['x'], quad_coords['bottomLeft']['y'])
+    ])
+    
+    point = Point(px, py)
+    return polygon.contains(point)
+
+def is_inside_coordinates(x1, y1, x2, y2, coordinates):
+    """Check if any part of the bounding box is inside the specified quadrilateral coordinates."""
+    print(x1, x2, y1, y2)
+    print(coordinates)
+
+    try:
+        topLeft = coordinates['topLeft']
+        topRight = coordinates['topRight']
+        bottomLeft = coordinates['bottomLeft']
+        bottomRight = coordinates['bottomRight']
+    except KeyError as e:
+        print(f"KeyError: Missing key {e} in coordinates.")
+        return False
+
+    # Bounding box corners
+    box_coords = [(x1, y1), (x2, y1), (x1, y2), (x2, y2)]
+    
+    # Check if any corner of the bounding box is inside the quadrilateral
+    for (x, y) in box_coords:
+        if is_point_in_quad(x, y, coordinates):
+            return True
+
+    return False
+
 def process_image(image_path):
+    global COORDINATES
+    print("COORDINATES:", COORDINATES)
     results = []
     behaviour_count = defaultdict(int)
+    
+    # Perform detection using the behavior model
     detection_model_result = behaviour_model.predict(image_path, conf=0.45)
     
     for result in detection_model_result:
+        # Get cropped images for detected objects
         cropped_images = display_cropped_images(result)
         
         for detected_area, x_offset, y_offset, behavior_class_id in cropped_images:
+            # Identify the shape of the detected object
             shape_classes = shape_finder(detected_area, x_offset, y_offset, result.orig_img.shape)
-
             behavior_name = behaviours.get(int(behavior_class_id.item()), "Unknown")
-            if shape_classes:
-                result_str = f"{class_map[shape_classes[0]]} : This ID cattle is {(behavior_name).lower()}."
+            
+            # Define the bounding box coordinates
+            x1, y1, x2, y2 = x_offset, y_offset, x_offset + detected_area.shape[1], y_offset + detected_area.shape[0]
+            
+            # Check if the bounding box is inside the defined zone
+            if is_inside_coordinates(x1, y1, x2, y2, COORDINATES) :
+                # Set behavior to 'Eating' if inside coordinates
+                if shape_classes:
+                    result_str = {class_map[shape_classes[0]]: "Eating"}
+                else:
+                    result_str = {"Unknown": "Eating"}
+                    
+                behaviour_count["Eating"] += 1
+                
+            elif shape_classes:
+                # Use the detected behavior if not inside the zone
+                result_str = {class_map[shape_classes[0]]: behavior_name}
                 behaviour_count[behavior_name] += 1
             else:
-                result_str = f"Unidentified cow's behavior: {behavior_name}."
+                # Handle unknown cases
+                result_str = {"Unknown": behavior_name}
+
             results.append(result_str)
     
-    boxed_image_path = draw_bounding_boxes(result, image_path)
+    # Draw bounding boxes on the image
+    boxed_image_path = draw_bounding_boxes(result, image_path, COORDINATES)
+    
+    # Generate charts based on behavior counts
     create_charts(behaviour_count)
     
     return results, boxed_image_path
+
+
 
 def create_charts(behaviour_count):
     labels = list(behaviour_count.keys())
@@ -142,7 +231,8 @@ def create_charts(behaviour_count):
     bar_chart_path = os.path.join(cache_dir, "behavior_bar_chart.png")
     plt.savefig(bar_chart_path)
     plt.close()
-
+    
+    
 @app.route('/process', methods=['POST'])
 def process_file():
     if 'file' not in request.files:
@@ -152,12 +242,21 @@ def process_file():
         return jsonify({"error": "No selected file"}), 400
     
     if file:
-        file_path = os.path.join(cache_dir, file.filename)
-        file.save(file_path)
+        # Open the image file
+        image = Image.open(file.stream)
+        
+        # Resize the image to 640x640
+        resized_image = image.resize((640, 640))
+        
+        # Save the resized image to a temporary location
+        file_path = os.path.join(cache_dir, 'resized_' + file.filename)
+        resized_image.save(file_path)
+        
         start_time = time.time()
         results, boxed_image_path = process_image(file_path)
         end_time = time.time()
         processing_time = round(end_time - start_time)
+        
         return jsonify({
             "results": results,
             "image_url": url_for('cached_image', filename=os.path.basename(boxed_image_path)),
@@ -166,7 +265,7 @@ def process_file():
             "device": str(device),
             "time": processing_time
         })
-
+        
 @app.route('/cache/<filename>')
 def cached_image(filename):
     return send_from_directory(cache_dir, filename)
@@ -340,43 +439,18 @@ def extract_date(filename):
         return pd.NaT
 
 
+
 @app.route('/coordinates', methods=['POST'])
 def handle_coordinates():
     data = request.json
     # Process the data here
     # For example, save it to a database or file
+    global COORDINATES
+    COORDINATES = data
     print("Data : ",data)
     return jsonify({'status': 'success', 'data': data}), 200
 
 #new code may probelm occurs
-
-@app.route('/zone_video', methods=['POST'])
-def zone_video():
-    """
-    Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
-    """
-    global VIDEO_PATH  # Declare VIDEO_PATH as global to modify it
-    print("yeah I am here")
-    
-    if 'video' not in request.files:
-        return {'error': "No video part in the request"}, 400
-    
-    video_file = request.files['video']
-    
-    if video_file.filename == '':
-        return {'error': "No selected file"}, 400
-    
-    video_path = os.path.join(cache_dir, video_file.filename)
-    
-    # Save or replace the video
-    video_file.save(video_path)
-    print("Video saved successfully.")
-    
-    if os.path.exists(video_path):
-        VIDEO_PATH = video_path  # Update the global VIDEO_PATH
-        print("zone Video, Video path:", VIDEO_PATH)
-    
-    return {'message': "Video uploaded successfully"}, 200
 
 @app.route('/zone_image', methods=['GET'])
 def zone_image():
@@ -1353,6 +1427,117 @@ def feeding_efficiency():
     })
 
 
+
+# Define the base URL for your app (adjust as per your app's setup)
+
+RESULTS = {}  # Global dictionary to store video processing results
+
+def process_video(video_path, csv_file_path, fps):
+    """
+    Function to process the video and progressively write results to a CSV file in the background.
+    """
+    global RESULTS
+    RESULTS = {}  # Reset the RESULTS dictionary
+    cap = cv2.VideoCapture(video_path)
+
+    # Create the CSV file with headers based on class_map
+    with open(csv_file_path, mode='w', newline='') as csv_file:
+        fieldnames = ['frameNumber'] + list(class_map.values())
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+            if frame_number % int(fps) == 0:  # Extract one frame per second
+                temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
+                
+                #resize the frame to 640x640
+                resized_frame = cv2.resize(frame, (640, 640))
+                cv2.imwrite(temp_frame_path, resized_frame)
+
+                # Process the frame and get the results
+                results, boxed_image_path = process_image(temp_frame_path)
+                print(f"Results for frame {frame_number}: {results}")
+
+                # Create a dictionary for the CSV row with 'nan' if a class is not detected
+                row = {}
+                for class_name in class_map.values():
+                    detected = next((result for result in results if class_name in result), None)
+                    if detected:
+                        row[class_name] = list(detected.values())[0]
+                    else:
+                        row[class_name] = 'nan'
+
+                # Write the row to the CSV file
+                writer.writerow(row)
+
+                # Construct the image URL manually using the base URL
+                image_url = f"/cache/{os.path.basename(boxed_image_path)}"
+
+                # Add the frame number, results, and boxed image URL to the RESULTS dictionary
+                RESULTS[frame_number] = [row, {'frameNumber': frame_number ,"image_url": image_url}]
+    
+    cap.release()
+    print(results)
+
+
+@app.route('/zone_video', methods=['POST'])
+def zone_video():
+    """
+    Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
+    """
+    global VIDEO_PATH
+    print("Video upload request received")
+    
+    if 'video' not in request.files:
+        return {'error': "No video part in the request"}, 400
+    
+    video_file = request.files['video']
+    
+    if video_file.filename == '':
+        return {'error': "No selected file"}, 400
+    
+    video_path = os.path.join(cache_dir, video_file.filename)
+    
+    # Save the uploaded video
+    video_file.save(video_path)
+    print("Video saved successfully at:", video_path)
+    
+    if os.path.exists(video_path):
+        VIDEO_PATH = video_path  # Update the global VIDEO_PATH
+        print("Video path updated:", VIDEO_PATH)
+    
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.release()
+
+    # Generate a CSV file name based on the current date
+    current_date = datetime.now().strftime('%Y_%m_%d')
+    csv_file_path = os.path.join(cache_dir, f'{current_date}.csv')
+    print("CSV file will be saved at:", csv_file_path)
+
+    # Process the video in a background thread
+    threading.Thread(target=process_video, args=(video_path, csv_file_path, fps)).start()
+
+    return {'message': "Video uploaded successfully. Processing started."}, 200
+
+
+@app.route('/video_results', methods=['GET'])
+def video_results():
+    """
+    Send the video processing results as JSON data.
+    """
+    global RESULTS
+
+    # Check if the RESULTS global variable is populated
+    if RESULTS:
+        # Return the RESULTS as JSON data
+        return jsonify(RESULTS)
+    else:
+        return {'error': 'Results not available or processing is still ongoing'}, 404
 
 if __name__ == '__main__':
     app.run(debug=True)

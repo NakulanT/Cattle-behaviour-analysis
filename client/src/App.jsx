@@ -7,10 +7,12 @@ import Dashboard1 from './pages/Dashboard1';
 import './App.css';
 import ProgressBar from './components/Progressbar';
 // import DrawZone from './components/Drawzone';
-import UploadVideo from './components/UploadVideo';
+import UploadVideo from './components/VideoUpload';
 import {BrowserRouter,Routes, Route} from 'react-router-dom'
 import CowDetailPage from './pages/CowDetailPage';
 import CowInfoPage from './components/CowInfoPage';
+import Video from './pages/Video';
+import VideoResults from './pages/VideoResults';
 
 
 function App() {
@@ -22,6 +24,8 @@ function App() {
           <Route exact path="/cow-details" element={<CowDetailPage/>} />
           <Route path="/cow/:cowId" element={<CowInfoPage />} />  {/* New route */}
 
+          <Route exact path="/video" element = { <Video />} /> 
+          <Route exact path="/video-results" element = { <VideoResults />} />
           {/* <Route path="/cow-details" component={CowDetailPage} /> */}
 
       </Routes>

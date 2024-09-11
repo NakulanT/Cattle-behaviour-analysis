@@ -106,9 +106,11 @@ def process_image(image_path):
     
     detection_model_result = behaviour_model.predict(image_path, conf=0.45)
     for result in detection_model_result:
+        print("result: ", result)
         cropped_images = display_cropped_images(result)
         
         for detected_area, x_offset, y_offset, behavior_class_id in cropped_images:
+            
             shape_classes = shape_finder(detected_area, x_offset, y_offset, result.orig_img.shape)
 
             behavior_name = behaviours.get(int(behavior_class_id.item()), "Unknown")
@@ -191,8 +193,8 @@ def extract_date(filename):
         print(f"Unexpected file format: {filename}")
         return pd.NaT
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
+@app.route('/dashboard', methods=['GET', 'POST'])
+def dashboard():
     # Directory containing CSV files
     csv_dir = 'db'
     csv_files = [f for f in os.listdir(csv_dir) if f.endswith('.csv')]
@@ -308,7 +310,51 @@ def index():
                            pie_chart='pie_chart.png', bar_chart_eating='bar_chart_eating.png', 
                            bar_chart_lying='bar_chart_lying.png',
                            behavior_analysis='behavior_analysis.png'
-                           )
+                          )
+                        
+                        
+@app.route('/video', methods=['POST'])
+def upload_video():
+    if 'video' not in request.files:
+        return redirect(request.url)
+    
+    video_file = request.files['video']
+    video_path = os.path.join(cache_dir, 'uploaded_video.mp4')
+    video_file.save(video_path)
+    
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_results = []
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+        if frame_number % int(fps) == 0:  # Extract one frame per second
+            temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
+            cv2.imwrite(temp_frame_path, frame)
+            results, boxed_image_path = process_image(temp_frame_path)
+            frame_results.append({
+                'frameNumber': frame_number,
+                'results': results,
+                'boxedImage': os.path.basename(boxed_image_path)  # Store only the filename
+            })
+    
+    cap.release()
+
+    # Return results to the template for display
+    return render_template('video_results.html', frame_results=frame_results)
+
+# Route to send cached images
+@app.route('/results/<filename>')
+def send_image(filename):
+    # This will serve the image from the cache directory
+    return send_from_directory(cache_dir, filename)
+
+@app.route('/')
+def index():
+    return render_template('video_upload.html')
 
 
 if __name__ == "__main__":
