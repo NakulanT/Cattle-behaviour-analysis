@@ -482,21 +482,101 @@ def convert_to_hours_minutes(decimal_hours):
     return f"{hours} hours and {minutes} minutes"
 
 
+# Function to convert minutes to 'X hours Y minutes' format
+def convert_to_hours_minutes(minutes):
+    hours = minutes // 60
+    mins = minutes % 60
+    return f"{hours} hours and {mins} minutes"
+
 # Filter cows based on behavior for the selected period
+# def filter_cows(data, period):
+#     data.columns = data.columns.str.strip()
+
+#     # Group by 'Cow ID' and sum the time spent in different behaviors over the selected period
+#     grouped_data = data.groupby('Cow ID').agg({
+#         'Lying Time (min)': 'sum',
+#         'Eating Time (min)': 'sum',
+#         'Standing Time (min)': 'sum'
+#     })
+
+#     # Convert the summed times into hours and minutes
+#     grouped_data['Lying Time (hours)'] = grouped_data['Lying Time (min)'] / 60
+#     grouped_data['Eating Time (hours)'] = grouped_data['Eating Time (min)'] / 60
+#     grouped_data['Standing Time (hours)'] = grouped_data['Standing Time (min)'] / 60
+
+#     # Keep all cow data for general output
+#     all_cows_data = data.groupby('Cow ID').first().reset_index()
+
+#     # Filtering logic for different behavior conditions based on the selected period
+#     if period == 'daily':
+#         # Daily filter thresholds
+#         eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < 5]
+#         eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > 6]
+#         lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < 8]
+#         lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > 12]
+#         standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < 4]
+#         standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > 8]
+#     elif period == 'weekly':
+#         # Weekly filter thresholds (times 7 days)
+#         lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < (8 * 7)]
+#         lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > (12 * 7)]
+#         eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < (3 * 7)]
+#         eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > (6 * 7)]
+#         standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < (4 * 7)]
+#         standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > (8 * 7)]
+#     elif period == 'monthly':
+#         # Monthly filter thresholds (approx 30 days)
+#         lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < (8 * 30)]
+#         lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > (12 * 30)]
+#         eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < (3 * 30)]
+#         eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > (6 * 30)]
+#         standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < (4 * 30)]
+#         standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > (8 * 30)]
+
+#     # Join the filtered data with the original all_cows_data based on Cow ID and add formatted time values
+#     def join_filtered_data(filtered_group):
+#         filtered_cows = all_cows_data[all_cows_data['Cow ID'].isin(filtered_group.index)]
+        
+#         # Add formatted time data for each cow
+#         filtered_cows['Lying Time'] = filtered_cows['Lying Time (min)'].apply(convert_to_hours_minutes)
+#         filtered_cows['Eating Time'] = filtered_cows['Eating Time (min)'].apply(convert_to_hours_minutes)
+#         filtered_cows['Standing Time'] = filtered_cows['Standing Time (min)'].apply(convert_to_hours_minutes)
+
+#         return filtered_cows
+
+#     # Apply the join for each condition and return the entire cow data
+#     filtered_results = {
+#         'lying_less_than_8': join_filtered_data(lying_less_than_8),
+#         'lying_more_than_12': join_filtered_data(lying_more_than_12),
+#         'eating_less_than_3': join_filtered_data(eating_less_than_3),
+#         'eating_more_than_6': join_filtered_data(eating_more_than_6),
+#         'standing_less_than_4': join_filtered_data(standing_less_than_4),
+#         'standing_more_than_8': join_filtered_data(standing_more_than_8)
+#     }
+
+#     # Return all filtered groups with full cow data
+#     return filtered_results
+
+
+
+
 def filter_cows(data, period):
     data.columns = data.columns.str.strip()
-    
+
     # Group by 'Cow ID' and sum the time spent in different behaviors over the selected period
     grouped_data = data.groupby('Cow ID').agg({
         'Lying Time (min)': 'sum',
         'Eating Time (min)': 'sum',
         'Standing Time (min)': 'sum'
     })
-    
+
     # Convert the summed times into hours and minutes
     grouped_data['Lying Time (hours)'] = grouped_data['Lying Time (min)'] / 60
     grouped_data['Eating Time (hours)'] = grouped_data['Eating Time (min)'] / 60
     grouped_data['Standing Time (hours)'] = grouped_data['Standing Time (min)'] / 60
+
+    # Merge back the original data with all behaviors intact
+    all_cows_data = data.groupby('Cow ID').first().reset_index()
 
     # Filtering logic for different behavior conditions based on the selected period
     if period == 'daily':
@@ -524,30 +604,25 @@ def filter_cows(data, period):
         standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < (4 * 30)]
         standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > (8 * 30)]
 
+    # Join the filtered data with the original all_cows_data based on Cow ID
+    def join_filtered_data(filtered_group):
+        return all_cows_data[all_cows_data['Cow ID'].isin(filtered_group.index)]
 
-        # Convert decimal hours to 'X hours Y minutes' format for each filtered group
-    def apply_time_format(group):
-        group['Lying Time'] = group['Lying Time (hours)'].apply(convert_to_hours_minutes)
-        group['Eating Time'] = group['Eating Time (hours)'].apply(convert_to_hours_minutes)
-        group['Standing Time'] = group['Standing Time (hours)'].apply(convert_to_hours_minutes)
-        return group.drop(columns=['Lying Time (hours)', 'Eating Time (hours)', 'Standing Time (hours)'])
-
-    # Apply the time formatting to each group
-    lying_less_than_8 = apply_time_format(lying_less_than_8)
-    lying_more_than_12 = apply_time_format(lying_more_than_12)
-    eating_less_than_3 = apply_time_format(eating_less_than_3)
-    eating_more_than_6 = apply_time_format(eating_more_than_6)
-    standing_less_than_4 = apply_time_format(standing_less_than_4)
-    standing_more_than_8 = apply_time_format(standing_more_than_8)
-    # Return all the filtered groups as a dictionary
-    return {
-        'lying_less_than_8': lying_less_than_8.reset_index(),
-        'lying_more_than_12': lying_more_than_12.reset_index(),
-        'eating_less_than_3': eating_less_than_3.reset_index(),
-        'eating_more_than_6': eating_more_than_6.reset_index(),
-        'standing_less_than_4': standing_less_than_4.reset_index(),
-        'standing_more_than_8': standing_more_than_8.reset_index()
+    # Apply the join for each condition and return the entire cow data
+    filtered_results = {
+        'lying_less_than_8': join_filtered_data(lying_less_than_8),
+        'lying_more_than_12': join_filtered_data(lying_more_than_12),
+        'eating_less_than_3': join_filtered_data(eating_less_than_3),
+        'eating_more_than_6': join_filtered_data(eating_more_than_6),
+        'standing_less_than_4': join_filtered_data(standing_less_than_4),
+        'standing_more_than_8': join_filtered_data(standing_more_than_8)
     }
+
+    # Return all filtered groups with full cow data
+    return filtered_results
+
+
+
 
 # Flask route for cow behavior analysis
 @app.route('/cow_behavior', methods=['GET'])
@@ -587,6 +662,108 @@ def get_cow_behavior():
     else:
         return jsonify({'error': 'Data not found for the given date range'}), 404
 
+
+
+
+# @app.route('/cow/<cow_id>', methods=['GET'])
+# def get_cow_details(cow_id):
+#     date_str = '2022-09-21'
+#     period = 'daily'
+    
+#     if not date_str:
+#         return jsonify({'error': 'Please provide a valid date'}), 400
+
+#     try:
+#         start_date = datetime.strptime(date_str, '%Y-%m-%d')
+#     except ValueError:
+#         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+#     # Initialize lists for storing the start date and other dates
+#     start_date_list = []
+#     other_dates_list = []
+
+#     # Determine the end date based on the specified period and store the start and other dates in lists
+#     if period == 'daily':
+#         # Get 7 days of data for daily (past 7 days)
+#         end_date = start_date - timedelta(days=6)  # Return data for 7 days, including the start date
+#     elif period == 'weekly':
+#         # Get 4 weeks of data for weekly (past 4 weeks)
+#         end_date = start_date - timedelta(weeks=4) - timedelta(days=1)  # Return data for 4 weeks
+#     elif period == 'monthly':
+#         # Get 12 months of data for monthly (past 12 months)
+#         end_date = (start_date - pd.DateOffset(months=12)) - timedelta(days=1)  # Return data for 12 months
+#     else:
+#         return jsonify({'error': 'Invalid period. Choose from "daily", "weekly", or "monthly".'}), 400
+    
+#     # Store the start date and other dates
+#     start_date_list.append(start_date.strftime('%Y-%m-%d'))
+    
+#     current_date = start_date
+#     while current_date > end_date:
+#         current_date -= timedelta(days=1)
+#         other_dates_list.append(current_date.strftime('%Y-%m-%d'))
+
+#     # Generate the date range and load the data (from end_date to start_date)
+#     date_range = generate_date_range(start_date=end_date, end_date=start_date)
+#     data = load_behavior_data(date_range)
+    
+#     if data is not None:
+#         # Filter the data by the provided Cow ID
+#         cow_data = data[data['Cow ID'] == cow_id]
+#         if not cow_data.empty:
+#             # Return the cow data, start date, and other dates in the response
+#             return jsonify({
+#                 "cow_data": cow_data.to_dict(orient='records'),
+#                 "start_date": start_date_list,
+#                 "other_dates": other_dates_list
+#             })
+#         else:
+#             return jsonify({"error": "Cow ID not found"}), 404
+#     else:
+#         return jsonify({'error': 'No data found for the given date range'}), 404
+
+
+# Route to get cow details by Cow ID
+@app.route('/cow/<cow_id>', methods=['GET'])
+def get_cow_details(cow_id):
+    # date_str = request.args.get('date')
+    # period = request.args.get('period')  # 'daily', 'weekly', 'monthly'
+    date_str='2022-09-21'
+    period='daily'
+    if not date_str:
+        return jsonify({'error': 'Please provide a valid date'}), 400
+
+    try:
+        start_date = datetime.strptime(date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+    # Determine the end date based on the specified period
+    if period == 'daily':
+        # Get 7 days of data for daily
+        end_date = start_date - timedelta(days=6)  # Return data for 7 days, including the start date
+    elif period == 'weekly':
+        # Get 4 weeks of data for weekly
+        end_date = start_date - timedelta(weeks=4) - timedelta(days=1)  # Return data for 4 weeks
+    elif period == 'monthly':
+        # Get 12 months of data for monthly
+        end_date = (start_date - pd.DateOffset(months=12)) - timedelta(days=1)  # Return data for 12 months
+    else:
+        return jsonify({'error': 'Invalid period. Choose from "daily", "weekly", or "monthly".'}), 400
+    # Generate the date range and load the data
+    date_range = generate_date_range(start_date=end_date, end_date=start_date)
+    data = load_behavior_data(date_range)
+    # print(data)
+
+    if data is not None:
+        # Filter the data by the provided Cow ID
+        cow_data = data[data['Cow ID'] == cow_id]
+        if not cow_data.empty:
+            return jsonify(cow_data.to_dict(orient='records'))
+        else:
+            return jsonify({"error": "Cow ID not found"}), 404
+    else:
+        return jsonify({'error': 'No data found for the given date range'}), 404
 
 
 

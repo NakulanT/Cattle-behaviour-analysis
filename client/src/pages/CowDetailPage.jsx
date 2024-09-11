@@ -5,12 +5,17 @@ const CowDetailPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { title, cows } = location.state || {};
-  
+
   // If no cow data is provided, redirect back to the main page
   if (!cows) {
     navigate('/');
     return null;
   }
+
+  const handleCowClick = (cowId) => {
+    // Navigate to the CowDetailPage by Cow ID
+    navigate(`/cow/${cowId}`);
+  };
 
   return (
     <div className="container mx-auto p-4 bg-gray-800 text-gray-100 rounded-lg">
@@ -21,7 +26,11 @@ const CowDetailPage = () => {
         {cows && cows.length > 0 ? (
           <ul className="list-none text-left">
             {cows.map((cow, index) => (
-              <li key={index} className="mb-2 flex items-center">
+              <li
+                key={index}
+                className="mb-2 flex items-center cursor-pointer"
+                onClick={() => handleCowClick(cow['Cow ID'])} // Handle click
+              >
                 <span className="mr-2 text-xl">🐄</span> {/* Cow emoji */}
                 {cow['Cow ID']}
               </li>

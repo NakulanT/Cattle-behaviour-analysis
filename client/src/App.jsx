@@ -10,24 +10,18 @@ import ProgressBar from './components/Progressbar';
 import UploadVideo from './components/UploadVideo';
 import {BrowserRouter,Routes, Route} from 'react-router-dom'
 import CowDetailPage from './pages/CowDetailPage';
+import CowInfoPage from './components/CowInfoPage';
 
 
 function App() {
-  const [count, setCount] = useState(0);
-  const data = {
-    "Standing": 12,
-    "eating": 20,
-    "lying down": 5,
-  };
-
-  const standingHours = [12, 14, 16, 17, 13, 14.5];
-  const eatingHours = [4, 6, 7, 5, 4, 6.3];
 
   return (
     <BrowserRouter>
       <Routes>
           <Route exact path="/" element={<Dashboard1/>} />
           <Route exact path="/cow-details" element={<CowDetailPage/>} />
+          <Route path="/cow/:cowId" element={<CowInfoPage />} />  {/* New route */}
+
           {/* <Route path="/cow-details" component={CowDetailPage} /> */}
 
       </Routes>
