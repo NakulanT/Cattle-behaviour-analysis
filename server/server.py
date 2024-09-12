@@ -22,7 +22,7 @@ import shutil
 import threading
 from PIL import Image
 
-from calculation import calculate_total_behavior
+from calculation import calculate_total_behavior,get_cow_data_by_id,get_behavior_sums_by_day,convert_to_serializable
 
 
 app = Flask(__name__)
@@ -526,6 +526,7 @@ DATA_DIR = 'cattle_behavior_data/'
 
 
 
+
 # Helper function to convert minutes to hours for specified columns
 def convert_minutes_to_hours(df, time_cols):
     df[time_cols] = df[time_cols] / 60  # Divide minutes by 60 to get hours
@@ -888,10 +889,26 @@ def get_cow_behavior():
 @app.route('/cow/<cow_id>', methods=['GET'])
 def get_cow_details(cow_id):
     # Get 'date' and 'period' from the query parameters
-    # date_str = request.args.get('date', '2022-09-21')
-    # period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
-    date_str='2023-09-21'
-    period='daily'
+    date_str = request.args.get('date', '2022-09-21')
+    period = request.args.get('period', 'monthly')  # Default to 'daily' if not provided
+    # date_str='2023-09-21'
+    # period='daily'
+
+    all_data_cow=get_cow_data_by_id(cow_id)
+    if all_data_cow is not None:
+        behavior_sums = get_behavior_sums_by_day(all_data_cow)
+
+        # Store the behavior sums for each day in a dictionary
+        cow_behavior_dict = {}
+
+        for date, totals in behavior_sums.items():
+            cow_behavior_dict[date] = {
+                "total_eating": totals['total_eating'],
+                "total_lying": totals['total_lying'],
+                "total_standing": totals['total_standing']
+            }
+        cow_behavior_dict = convert_to_serializable(cow_behavior_dict)
+
 
     if not date_str:
         return jsonify({'error': 'Please provide a valid date'}), 400
@@ -934,41 +951,7 @@ def get_cow_details(cow_id):
 
         if not cow_data.empty:
 
-            # if period == 'daily':
-            #     # Initialize a dictionary to store behavior totals for each date
-            #     daily_behavior_totals = {}
 
-            #     # Group the data by each date
-            #     grouped_by_date = cow_data.groupby('Date')
-
-            #     # Variables to store cumulative totals for calculating the 7-day average
-            #     cumulative_totals = {"total_eating": 0, "total_lying": 0, "total_standing": 0}
-            #     total_days = len(other_dates_list)  # Assuming we have exactly 7 days of data
-
-            #     # Iterate through each group (date) and calculate total behavior times
-            #     for date, group in grouped_by_date:
-            #         total_behavior = calculate_total_behavior(group)
-                    
-            #         # Convert the daily totals from minutes to hours and round to the nearest integer
-            #         daily_totals = {k: int(round(float(v) / 60)) for k, v in total_behavior.items()}
-                    
-            #         # Add the daily totals to the cumulative totals
-            #         cumulative_totals = {k: cumulative_totals[k] + daily_totals[k] for k in cumulative_totals.keys()}
-                    
-            #         # Store the daily totals
-            #         daily_behavior_totals[date] = daily_totals
-
-            #     # Calculate the average behavior for the 7-day period and round to the nearest integer
-            #     average_behavior = {k: int(round(cumulative_totals[k] / total_days)) for k in cumulative_totals.keys()}
-
-            #     # Return the cow data, behavior totals for each date, and the 7-day average
-            #     return jsonify({
-            #         "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
-            #         "7_days_behavior_totals": daily_behavior_totals,  # Behavior totals for each date
-            #         "average_7_days_behavior": average_behavior,  # 7-day average behavior in hours (rounded)
-            #         "start_date": start_date_list,  # The start date in a separate list
-            #         "other_dates": other_dates_list  # Other past dates in a different list
-            #     })
             if period == 'daily':
                 # Initialize a list to store daily behavior data in the required format
                 weekly_data = []
@@ -1007,7 +990,8 @@ def get_cow_details(cow_id):
                 # Return the cow data and the weekly formatted data
                 return jsonify({
                     # "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
-                    "weeklyData": weekly_data,  # Behavior data for each of the 7 days
+                    "weeklyData": weekly_data, 
+                     "data":cow_behavior_dict # Behavior data for each of the 7 days
                     # # "average_7_days_behavior": {
                     #     "standing": average_behavior["total_standing"],
                     #     "eating": average_behavior["total_eating"],
@@ -1018,6 +1002,130 @@ def get_cow_details(cow_id):
                 })
 
             
+
+            elif period == 'weekly':
+                # Initialize a list to store weekly data in the required format
+                weekly_data = []
+
+                total_weeks = 4  # Limit to 4 weeks
+
+                # Split `other_dates_list` into 4 weeks, each containing 7 days
+                weeks = [other_dates_list[i:i + 7] for i in range(0, min(len(other_dates_list), 28), 7)]
+
+                # Ensure we have exactly 4 weeks (4 sets of 7 days)
+                for week_num, week_dates in enumerate(weeks, start=1):
+                    week_data = cow_data[cow_data['Date'].isin(week_dates)]
+
+                    if not week_data.empty:
+                        # Calculate the total and average behavior for this week
+                        total_behavior_week = calculate_total_behavior(week_data)
+
+                        # Convert behavior values from minutes to hours and round them to integers
+                        avg_behavior_week = {k: int(round(float(v) / 60 / 7)) for k, v in total_behavior_week.items()}
+
+                        # Append the weekly behavior data to the list in the required format
+                        weekly_data.append({
+                            "name": str(week_num),  # Week number as the name
+                            "standing": avg_behavior_week.get("total_standing", 0),
+                            "eating": avg_behavior_week.get("total_eating", 0),
+                            "lyingDown": avg_behavior_week.get("total_lying", 0)
+                        })
+
+                # Return the weekly data in the requested format
+                return jsonify({
+                    "weeklyData": weekly_data,
+                    "data":cow_behavior_dict # Behavior data for each of the 7 days
+ # List of weekly behavior data
+                })
+
+            elif period == 'monthly':               # Initialize a list to store monthly data in the required format
+                monthly_data = []
+
+                # Get the last 12 months starting from the start_date
+                current_date = start_date
+                for i in range(12):
+                    # Get the start and end of the current month
+                    month_start = current_date.replace(day=1)
+                    next_month_start = (month_start + pd.DateOffset(months=1)).replace(day=1)
+                    month_end = next_month_start - timedelta(days=1)
+                    
+                    # Filter cow data for the current month
+                    month_data = cow_data[(cow_data['Date'] >= month_start.strftime('%Y-%m-%d')) & 
+                                        (cow_data['Date'] <= month_end.strftime('%Y-%m-%d'))]
+                    
+                    # Calculate total behavior times for the month
+                    total_behavior_month = calculate_total_behavior(month_data)
+                    
+                    # Convert the totals to hours (currently in minutes) and round to integers
+                    total_behavior_month = {k: int(round(float(v) / 60)) for k, v in total_behavior_month.items()}
+                    
+                    # Calculate average behavior times for the month (if there are enough days of data)
+                    num_days_in_month = month_data['Date'].nunique()  # Number of unique days in the month
+                    if num_days_in_month > 0:
+                        avg_behavior_month = {k: int(round(float(v) / num_days_in_month)) for k, v in total_behavior_month.items()}
+                    else:
+                        avg_behavior_month = {k: 0 for k in total_behavior_month.keys()}  # Handle empty months
+                    
+                    # Add the monthly behavior data to the list in the desired format
+                    monthly_data.append({
+                        "name": f"{i+1}",  # Month number as the name
+                        "standing": avg_behavior_month["total_standing"],
+                        "eating": avg_behavior_month["total_eating"],
+                        "lyingDown": avg_behavior_month["total_lying"]
+                    })
+                    
+                    # Move to the previous month
+                    current_date = month_start - pd.DateOffset(months=1)
+
+                # Return the monthly data in the requested format
+                return jsonify({
+                    "monthlyData": monthly_data,
+                    "data":cow_behavior_dict 
+                })
+
+ 
+            else:
+                # Separate cow data based on 'start_date' and 'other_dates'
+                cow_data_start = cow_data[cow_data['Date'] == start_date.strftime('%Y-%m-%d')]
+                cow_data_others = cow_data[cow_data['Date'].isin(other_dates_list)]
+
+                # Calculate total behavior times
+                total_behavior_start = calculate_total_behavior(cow_data_start)
+                total_behavior_others = calculate_total_behavior(cow_data_others)
+
+                # Ensure all totals are serializable (convert numbers to float)
+                total_behavior_start = {k: float(v) for k, v in total_behavior_start.items()}
+                total_behavior_others = {k: float(v) for k, v in total_behavior_others.items()}
+
+                # Calculate average behavior over other days
+                num_days = len(other_dates_list)
+                avg_behavior_others = {behavior: total / num_days for behavior, total in total_behavior_others.items()}
+                avg_behavior_others = {k: float(v) for k, v in avg_behavior_others.items()}
+
+                # Return the cow data, start date, other dates, and total/average times in the response
+                return jsonify({
+                    "cow_data_start": cow_data_start.to_dict(orient='records'),  # Data for the start date
+                    "cow_data_others": cow_data_others.to_dict(orient='records'),  # Data for other dates
+                    "start_date": start_date_list,  # The start date in a separate list
+                    "other_dates": other_dates_list,  # Other past dates in a different list
+                    "total_behavior_start": total_behavior_start,  # Total behavior time for start date
+                    "total_behavior_others": total_behavior_others,  # Total behavior time for other dates
+                    "avg_behavior_others": avg_behavior_others  # Average behavior time for other dates
+                })
+        else:
+            return jsonify({"error": f"Cow ID '{cow_id}' not found"}), 404
+    else:
+        return jsonify({'error': 'No data found for the given date range'}), 404
+
+
+
+
+
+
+
+# 
+
+
             # elif period == 'weekly':
             #     # Initialize a dictionary to store each week's total, average behavior, and dates
             #     weekly_averages = {}
@@ -1068,38 +1176,43 @@ def get_cow_details(cow_id):
             #         # "other_dates": other_dates_list[:total_weeks * 7]  # Limit to dates in the range of 4 weeks
             #     })
 
-            elif period == 'weekly':
-                # Initialize a list to store weekly data in the required format
-                weekly_data = []
 
-                total_weeks = 4  # Limit to 4 weeks
+            # if period == 'daily':
+            #     # Initialize a dictionary to store behavior totals for each date
+            #     daily_behavior_totals = {}
 
-                # Split `other_dates_list` into 4 weeks, each containing 7 days
-                weeks = [other_dates_list[i:i + 7] for i in range(0, min(len(other_dates_list), 28), 7)]
+            #     # Group the data by each date
+            #     grouped_by_date = cow_data.groupby('Date')
 
-                # Ensure we have exactly 4 weeks (4 sets of 7 days)
-                for week_num, week_dates in enumerate(weeks, start=1):
-                    week_data = cow_data[cow_data['Date'].isin(week_dates)]
+            #     # Variables to store cumulative totals for calculating the 7-day average
+            #     cumulative_totals = {"total_eating": 0, "total_lying": 0, "total_standing": 0}
+            #     total_days = len(other_dates_list)  # Assuming we have exactly 7 days of data
 
-                    if not week_data.empty:
-                        # Calculate the total and average behavior for this week
-                        total_behavior_week = calculate_total_behavior(week_data)
+            #     # Iterate through each group (date) and calculate total behavior times
+            #     for date, group in grouped_by_date:
+            #         total_behavior = calculate_total_behavior(group)
+                    
+            #         # Convert the daily totals from minutes to hours and round to the nearest integer
+            #         daily_totals = {k: int(round(float(v) / 60)) for k, v in total_behavior.items()}
+                    
+            #         # Add the daily totals to the cumulative totals
+            #         cumulative_totals = {k: cumulative_totals[k] + daily_totals[k] for k in cumulative_totals.keys()}
+                    
+            #         # Store the daily totals
+            #         daily_behavior_totals[date] = daily_totals
 
-                        # Convert behavior values from minutes to hours and round them to integers
-                        avg_behavior_week = {k: int(round(float(v) / 60 / 7)) for k, v in total_behavior_week.items()}
+            #     # Calculate the average behavior for the 7-day period and round to the nearest integer
+            #     average_behavior = {k: int(round(cumulative_totals[k] / total_days)) for k in cumulative_totals.keys()}
 
-                        # Append the weekly behavior data to the list in the required format
-                        weekly_data.append({
-                            "name": str(week_num),  # Week number as the name
-                            "standing": avg_behavior_week.get("total_standing", 0),
-                            "eating": avg_behavior_week.get("total_eating", 0),
-                            "lyingDown": avg_behavior_week.get("total_lying", 0)
-                        })
+            #     # Return the cow data, behavior totals for each date, and the 7-day average
+            #     return jsonify({
+            #         "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
+            #         "7_days_behavior_totals": daily_behavior_totals,  # Behavior totals for each date
+            #         "average_7_days_behavior": average_behavior,  # 7-day average behavior in hours (rounded)
+            #         "start_date": start_date_list,  # The start date in a separate list
+            #         "other_dates": other_dates_list  # Other past dates in a different list
+            #     })
 
-                # Return the weekly data in the requested format
-                return jsonify({
-                    "weeklyData": weekly_data  # List of weekly behavior data
-                })
 
             # elif period == 'monthly':
             #     # Initialize a dictionary to store monthly data
@@ -1145,87 +1258,8 @@ def get_cow_details(cow_id):
             #     return jsonify({
             #         "monthly_data": monthly_data
             #     })
-            elif period == 'monthly':               # Initialize a list to store monthly data in the required format
-                monthly_data = []
 
-                # Get the last 12 months starting from the start_date
-                current_date = start_date
-                for i in range(12):
-                    # Get the start and end of the current month
-                    month_start = current_date.replace(day=1)
-                    next_month_start = (month_start + pd.DateOffset(months=1)).replace(day=1)
-                    month_end = next_month_start - timedelta(days=1)
-                    
-                    # Filter cow data for the current month
-                    month_data = cow_data[(cow_data['Date'] >= month_start.strftime('%Y-%m-%d')) & 
-                                        (cow_data['Date'] <= month_end.strftime('%Y-%m-%d'))]
-                    
-                    # Calculate total behavior times for the month
-                    total_behavior_month = calculate_total_behavior(month_data)
-                    
-                    # Convert the totals to hours (currently in minutes) and round to integers
-                    total_behavior_month = {k: int(round(float(v) / 60)) for k, v in total_behavior_month.items()}
-                    
-                    # Calculate average behavior times for the month (if there are enough days of data)
-                    num_days_in_month = month_data['Date'].nunique()  # Number of unique days in the month
-                    if num_days_in_month > 0:
-                        avg_behavior_month = {k: int(round(float(v) / num_days_in_month)) for k, v in total_behavior_month.items()}
-                    else:
-                        avg_behavior_month = {k: 0 for k in total_behavior_month.keys()}  # Handle empty months
-                    
-                    # Add the monthly behavior data to the list in the desired format
-                    monthly_data.append({
-                        "name": f"{i+1}",  # Month number as the name
-                        "standing": avg_behavior_month["total_standing"],
-                        "eating": avg_behavior_month["total_eating"],
-                        "lyingDown": avg_behavior_month["total_lying"]
-                    })
-                    
-                    # Move to the previous month
-                    current_date = month_start - pd.DateOffset(months=1)
-
-                # Return the monthly data in the requested format
-                return jsonify({
-                    "monthlyData": monthly_data  # List of monthly behavior data
-                })
-
- 
-            else:
-                # Separate cow data based on 'start_date' and 'other_dates'
-                cow_data_start = cow_data[cow_data['Date'] == start_date.strftime('%Y-%m-%d')]
-                cow_data_others = cow_data[cow_data['Date'].isin(other_dates_list)]
-
-                # Calculate total behavior times
-                total_behavior_start = calculate_total_behavior(cow_data_start)
-                total_behavior_others = calculate_total_behavior(cow_data_others)
-
-                # Ensure all totals are serializable (convert numbers to float)
-                total_behavior_start = {k: float(v) for k, v in total_behavior_start.items()}
-                total_behavior_others = {k: float(v) for k, v in total_behavior_others.items()}
-
-                # Calculate average behavior over other days
-                num_days = len(other_dates_list)
-                avg_behavior_others = {behavior: total / num_days for behavior, total in total_behavior_others.items()}
-                avg_behavior_others = {k: float(v) for k, v in avg_behavior_others.items()}
-
-                # Return the cow data, start date, other dates, and total/average times in the response
-                return jsonify({
-                    "cow_data_start": cow_data_start.to_dict(orient='records'),  # Data for the start date
-                    "cow_data_others": cow_data_others.to_dict(orient='records'),  # Data for other dates
-                    "start_date": start_date_list,  # The start date in a separate list
-                    "other_dates": other_dates_list,  # Other past dates in a different list
-                    "total_behavior_start": total_behavior_start,  # Total behavior time for start date
-                    "total_behavior_others": total_behavior_others,  # Total behavior time for other dates
-                    "avg_behavior_others": avg_behavior_others  # Average behavior time for other dates
-                })
-        else:
-            return jsonify({"error": f"Cow ID '{cow_id}' not found"}), 404
-    else:
-        return jsonify({'error': 'No data found for the given date range'}), 404
-
-
-
-
+#
 
 
 # Route for streaming numbers
