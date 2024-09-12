@@ -13,7 +13,7 @@ import CowDetailPage from './pages/CowDetailPage';
 import CowInfoPage from './components/CowInfoPage';
 import Video from './pages/Video';
 import VideoResults from './pages/VideoResults';
-
+import Sample from './pages/Sample';
 
 function App() {
 
@@ -26,6 +26,7 @@ function App() {
 
           <Route exact path="/video" element = { <Video />} /> 
           <Route exact path="/video-results" element = { <VideoResults />} />
+          <Route exact path="/sample" element = {<Sample />} />
           {/* <Route path="/cow-details" component={CowDetailPage} /> */}
 
       </Routes>

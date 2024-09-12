@@ -1026,6 +1026,7 @@ def get_cow_details(cow_id):
                 average_behavior = {k: int(round(cumulative_totals[k] / total_days)) for k in cumulative_totals.keys()}
 
                 # Return the cow data and the weekly formatted data
+                print("weekly :",weekly_data)
                 return jsonify({
                     # "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
                     "weeklyData": weekly_data, 
