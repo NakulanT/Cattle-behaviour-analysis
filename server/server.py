@@ -557,11 +557,11 @@ def convert_to_hours_minutes(decimal_hours):
     return f"{hours} hours and {minutes} minutes"
 
 
-# Function to convert minutes to 'X hours Y minutes' format
-def convert_to_hours_minutes(minutes):
-    hours = minutes // 60
-    mins = minutes % 60
-    return f"{hours} hours and {mins} minutes"
+## Function to convert minutes to 'X hours Y minutes# format
+# def convert_to_hours_minutes(minutes):
+#     hours = minutes // 60
+#     mins = minutes % 60
+#     return f"{hours} hours and {mins} minutes"
 
 # Filter cows based on behavior for the selected period
 # def filter_cows(data, period):
@@ -880,21 +880,12 @@ def get_cow_behavior():
 
 
 
+from flask import jsonify
 
-
-
-
-
-
-@app.route('/cow/<cow_id>', methods=['GET'])
-def get_cow_details(cow_id):
-    # Get 'date' and 'period' from the query parameters
-    date_str = request.args.get('date', '2022-09-21')
-    period = request.args.get('period', 'monthly')  # Default to 'daily' if not provided
-    # date_str='2023-09-21'
-    # period='daily'
-
-    all_data_cow=get_cow_data_by_id(cow_id)
+@app.route('/cow_all_data/<cow_id>', methods=['GET'])
+def get_all_day_cow_details(cow_id):
+    all_data_cow = get_cow_data_by_id(cow_id)
+    
     if all_data_cow is not None:
         behavior_sums = get_behavior_sums_by_day(all_data_cow)
 
@@ -903,11 +894,58 @@ def get_cow_details(cow_id):
 
         for date, totals in behavior_sums.items():
             cow_behavior_dict[date] = {
-                "total_eating": totals['total_eating'],
-                "total_lying": totals['total_lying'],
-                "total_standing": totals['total_standing']
+                "total_eating": int(totals['total_eating']),  # Convert to native Python int
+                "total_lying": int(totals['total_lying']),    # Convert to native Python int
+                "total_standing": int(totals['total_standing'])  # Convert to native Python int
             }
-        cow_behavior_dict = convert_to_serializable(cow_behavior_dict)
+
+        # Convert to hours and apply the conditions
+        behavior_d = {}
+        for date, data in cow_behavior_dict.items():
+            data['Eating Time (hours)'] = data['total_eating'] / 60
+            data['Lying Time (hours)'] = data['total_lying'] / 60
+            data['Standing Time (hours)'] = data['total_standing'] / 60
+
+            # For each day, create a list with condition results (1 or 0)
+            behavior_d[date] = {
+                "eating_less_than_5": 1 if data['Eating Time (hours)'] < 5 else 0,
+                "eating_more_than_6": 1 if data['Eating Time (hours)'] > 6 else 0,
+                "lying_less_than_8": 1 if data['Lying Time (hours)'] < 8 else 0,
+                "lying_more_than_12": 1 if data['Lying Time (hours)'] > 12 else 0,
+                "standing_less_than_4": 1 if data['Standing Time (hours)'] < 4 else 0,
+                "standing_more_than_8": 1 if data['Standing Time (hours)'] > 8 else 0
+            }
+
+            # Calculate the sum of the condition flags and add it as "value"
+            total_value = (
+                behavior_d[date]['eating_less_than_5'] +
+                behavior_d[date]['eating_more_than_6'] +
+                behavior_d[date]['lying_less_than_8'] +
+                behavior_d[date]['lying_more_than_12'] +
+                behavior_d[date]['standing_less_than_4'] +
+                behavior_d[date]['standing_more_than_8']
+            )
+
+            behavior_d[date]["value"] = total_value
+
+        # Return the results as JSON
+        return jsonify({
+            # "behavior_data": cow_behavior_dict,
+            "condition_summary": behavior_d
+        })
+    
+    return jsonify({"error": "No data found for cow ID"}), 404
+
+
+
+@app.route('/cow/<cow_id>', methods=['GET'])
+def get_cow_details(cow_id):
+    # Get 'date' and 'period' from the query parameters
+    date_str = request.args.get('date', '2022-09-21')
+    period = request.args.get('period', 'weekly')  # Default to 'daily' if not provided
+    # date_str='2023-09-21'
+    # period='daily'
+
 
 
     if not date_str:
@@ -991,7 +1029,8 @@ def get_cow_details(cow_id):
                 return jsonify({
                     # "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
                     "weeklyData": weekly_data, 
-                     "data":cow_behavior_dict # Behavior data for each of the 7 days
+                    #  "data":cow_behavior_dict 
+                    # # Behavior data for each of the 7 days
                     # # "average_7_days_behavior": {
                     #     "standing": average_behavior["total_standing"],
                     #     "eating": average_behavior["total_eating"],
@@ -1013,6 +1052,11 @@ def get_cow_details(cow_id):
                 weeks = [other_dates_list[i:i + 7] for i in range(0, min(len(other_dates_list), 28), 7)]
 
                 # Ensure we have exactly 4 weeks (4 sets of 7 days)
+                # print(weeks)
+                # print(weeks)
+                # print(weeks)
+                # print(weeks)
+                
                 for week_num, week_dates in enumerate(weeks, start=1):
                     week_data = cow_data[cow_data['Date'].isin(week_dates)]
 
@@ -1034,7 +1078,7 @@ def get_cow_details(cow_id):
                 # Return the weekly data in the requested format
                 return jsonify({
                     "weeklyData": weekly_data,
-                    "data":cow_behavior_dict # Behavior data for each of the 7 days
+                    # "data":cow_behavior_dict # Behavior data for each of the 7 days
  # List of weekly behavior data
                 })
 
@@ -1080,7 +1124,7 @@ def get_cow_details(cow_id):
                 # Return the monthly data in the requested format
                 return jsonify({
                     "monthlyData": monthly_data,
-                    "data":cow_behavior_dict 
+                    # "data":cow_behavior_dict 
                 })
 
  
