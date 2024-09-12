@@ -889,9 +889,9 @@ def get_cow_behavior():
 def get_cow_details(cow_id):
     # Get 'date' and 'period' from the query parameters
     # date_str = request.args.get('date', '2022-09-21')
-    # period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
+    period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
     date_str='2023-09-21'
-    period='daily'
+    print("period",period)
 
     if not date_str:
         return jsonify({'error': 'Please provide a valid date'}), 400
@@ -1005,6 +1005,7 @@ def get_cow_details(cow_id):
                 average_behavior = {k: int(round(cumulative_totals[k] / total_days)) for k in cumulative_totals.keys()}
 
                 # Return the cow data and the weekly formatted data
+                print("weekly :",weekly_data)
                 return jsonify({
                     # "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
                     "weeklyData": weekly_data,  # Behavior data for each of the 7 days
