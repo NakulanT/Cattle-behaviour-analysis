@@ -1,39 +1,78 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import Linecharts from '../components/Linecharts.jsx';
 import CalendarHeatmap from "../components/CalanderHeatmap";
 import Piechart from "../components/PieChart";
 import DiseaseBarChart from '../components/DiseaseBarChart.jsx';
 import CattleRadarChart from '../components/CattleRadarChart.jsx';
 
-
 const Sample = () => {
   const [view, setView] = useState('weekly');
+  const [trendsData, setTrendsData] = useState(null);
+  const [monthlyData, setMonthlyData] = useState(null); // State to store monthly data
+  const [error, setError] = useState(null);
 
-  // Sample weekly and monthly data
-  const weeklyData = [
-    { name: 'Day 1', standing: 15, eating: 5, lyingDown: 3 },
-    { name: 'Day 2', standing: 16, eating: 6, lyingDown: 7 },
-    { name: 'Day 3', standing: 5, eating: 7, lyingDown: 4},
-    { name: 'Day 4', standing: 8, eating: 8, lyingDown: 6 },
-    { name: 'Day 5', standing: 9, eating: 4, lyingDown: 3 },
-    { name: 'Day 6', standing: 15, eating: 5, lyingDown: 2 },
-    { name: 'Day 7', standing: 7, eating: 6, lyingDown: 8},
-  ];
+  // Declare constants
+  const cowId = 'Cow_1'; // Replace with your actual cow ID or null if not needed
 
-  const monthlyData = [
-    { name: 'Jan', standing: 30, eating: 30, lyingDown: 30 },
-    { name: 'Feb', standing: 45, eating: 45, lyingDown: 45 },
-    { name: 'Mar', standing: 23, eating: 0, lyingDown: 0 },
-    { name: 'Apr', standing: 50, eating: 50, lyingDown: 50 },
-    { name: 'May', standing: 33, eating: 35, lyingDown: 35 },
-    { name: 'Jun', standing: 64, eating: 30, lyingDown: 60 },
-    { name: 'Jul', standing: 42, eating: 10, lyingDown: 40 },
-    { name: 'Aug', standing: 22, eating: 85, lyingDown: 55 },
-    { name: 'Sep', standing: 24, eating: 50, lyingDown: 20 },
-    { name: 'Oct', standing: 45, eating: 45, lyingDown: 45 },
-    { name: 'Nov', standing: 37, eating: 58, lyingDown: 38 },
-    { name: 'Dec', standing: 58, eating: 30, lyingDown: 50 },
-  ];
+  // Fetch Weekly Data
+  useEffect(() => {
+    const fetchWeeklyData = async () => {
+      try {
+        const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`, {
+          params: {
+            period: 'weekly',
+            cow_id: cowId,
+          },
+        });
+        const formattedWeeklyData = response.data.weeklyData.map((day) => ({
+          name: day.name,
+          standing: day.standing,
+          eating: day.eating,
+          lyingDown: day.lyingDown,
+        }));
+        setTrendsData(formattedWeeklyData);
+        console.log("Weekly Data: ", formattedWeeklyData);
+      } catch (error) {
+        setError(error);
+      }
+    };
+    fetchWeeklyData();
+  }, [cowId]);
+
+  // Fetch Monthly Data
+  useEffect(() => {
+    const fetchMonthlyData = async () => {
+      try {
+        const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`, {
+          params: {
+            period: 'monthly',
+            cow_id: cowId,
+          },
+        });
+        console.log(response.data)
+        const formattedMonthlyData = response.data.monthlyData.map((month) => ({
+          name: month.name,
+          standing: month.standing,
+          eating: month.eating,
+          lyingDown: month.lyingDown,
+        }));
+        setMonthlyData(formattedMonthlyData);
+        console.log("Monthly Data: ", formattedMonthlyData);
+      } catch (error) {
+        setError(error);
+      }
+    };
+    fetchMonthlyData();
+  }, [cowId]);
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+
+  if (!trendsData || !monthlyData) {
+    return <div>Loading...</div>;
+  }
 
   const Piedata = {
     Standing: 12,
@@ -42,11 +81,40 @@ const Sample = () => {
     'Out of Camera': 2,
   };
 
+
   const calendarData = [
-    { date: '2024-01-01', value: 30 },
-    { date: '2024-01-02', value: 45 },
-    { date: '2024-01-03', value: 0 },
-    // Add more data as needed...
+        
+    { "date": "2024-01-01", "value": 30 }, 
+    { "date": "2024-01-02", "value": 45 },
+    { "date": "2024-01-03", "value": 0 },
+    { "date": "2024-01-04", "value": 50 },
+    { "date": "2024-01-05", "value": 35 },
+    { "date": "2024-01-06", "value": 60 },
+    { "date": "2024-01-07", "value": 40 },
+    { "date": "2024-01-08", "value": 55 },
+    { "date": "2024-01-09", "value": 20 },
+    { "date": "2024-01-10", "value": 45 },
+    { "date": "2024-01-11", "value": 38 },
+    { "date": "2024-01-12", "value": 50 },
+    { "date": "2024-01-13", "value": 25 },
+    { "date": "2024-01-14", "value": 60 },
+    { "date": "2024-01-15", "value": 70 },
+    { "date": "2024-01-16", "value": 42 },
+    { "date": "2024-01-17", "value": 34 },
+    { "date": "2024-01-18", "value": 60 },
+    { "date": "2024-01-19", "value": 27 },
+    { "date": "2024-01-20", "value": 65 },
+    { "date": "2024-01-21", "value": 40 },
+    { "date": "2024-01-22", "value": 30 },
+    { "date": "2024-01-23", "value": 55 },
+    { "date": "2024-01-24", "value": 35 },
+    { "date": "2024-01-25", "value": 60 },
+    { "date": "2024-01-26", "value": 50 },
+    { "date": "2024-01-27", "value": 48 },
+    { "date": "2024-01-28", "value": 25 },
+    { "date": "2024-01-29", "value": 70 },
+    { "date": "2024-01-30", "value": 38 },
+    { "date": "2024-01-31", "value": 60 }
   ];
 
   const monthlyDiseaseCount = [
@@ -71,7 +139,7 @@ const Sample = () => {
 
   return (
     <div className="bg-gray-900 p-4">
-      <Linecharts weeklyData={weeklyData} monthlyData={monthlyData} />
+      <Linecharts weeklyData={trendsData} monthlyData={monthlyData} />
       <DiseaseBarChart data={monthlyDiseaseCount} />
       <CattleRadarChart data={raderdata} />
       <Piechart data={Piedata} />
