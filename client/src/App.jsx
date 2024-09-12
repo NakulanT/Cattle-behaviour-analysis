@@ -10,26 +10,20 @@ import ProgressBar from './components/Progressbar';
 import UploadVideo from './components/VideoUpload';
 import {BrowserRouter,Routes, Route} from 'react-router-dom'
 import CowDetailPage from './pages/CowDetailPage';
+import CowInfoPage from './components/CowInfoPage';
 import Video from './pages/Video';
 import VideoResults from './pages/VideoResults';
 import Sample from './pages/Sample';
 
 function App() {
-  const [count, setCount] = useState(0);
-  const data = {
-    "Standing": 12,
-    "eating": 20,
-    "lying down": 5,
-  };
-
-  const standingHours = [12, 14, 16, 17, 13, 14.5];
-  const eatingHours = [4, 6, 7, 5, 4, 6.3];
 
   return (
     <BrowserRouter>
       <Routes>
           <Route exact path="/" element={<Dashboard1/>} />
           <Route exact path="/cow-details" element={<CowDetailPage/>} />
+          <Route path="/cow/:cowId" element={<CowInfoPage />} />  {/* New route */}
+
           <Route exact path="/video" element = { <Video />} /> 
           <Route exact path="/video-results" element = { <VideoResults />} />
           <Route exact path="/sample" element = {<Sample />} />

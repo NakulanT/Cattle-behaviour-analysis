@@ -10,11 +10,18 @@ const Dashboard1 = () => {
   return (
     <>
       <div className="bg-gray-900 min-h-screen p-4">
-        {/* Cattle Behavior Dashboard */}
-        <div className="w-full flex justify-center p-4">
-          <div className="flex flex-col items-center lg:flex-row gap-5 w-full lg:w-4/5">
-            {/* Trend Controls */}
-            <div className="w-full lg:w-1/3 ">
+        {/* Main Container with Full Height */}
+        <div className="flex flex-col lg:flex-row h-full w-full gap-5 justify-center p-4 lg:w-4/5 mx-auto">
+          
+          {/* Left Side: Cow Behavior Details - Full Height, Half Width */}
+          <div className="w-full lg:w-1/2">
+            <CowBehaviorDetails trendType={trendType} date={date} />
+          </div>
+
+          {/* Right Side: Half Width, Full Height */}
+          <div className="flex flex-col w-full lg:w-1/2 gap-5 h-full">
+            {/* Top Half: TrendControls */}
+            <div className="w-full h-1/2">
               <TrendControls
                 trendType={trendType}
                 setTrendType={setTrendType}
@@ -23,23 +30,8 @@ const Dashboard1 = () => {
               />
             </div>
 
-            {/* Cow Behavior Details */}
-            <div className="w-full lg:w-2/3">
-              <CowBehaviorDetails trendType={trendType} date={date} />
-            </div>
-          </div>
-        </div>
-
-        {/* Second Row */}
-        <div className="w-full flex justify-center p-4">
-          <div className="flex flex-col lg:flex-row gap-5 w-full lg:w-4/5">
-            {/* Cow Behavior Details (Duplicate if needed) */}
-            <div className="w-full lg:w-1/2">
-              <CowBehaviorDetails trendType={trendType} date={date} />
-            </div>
-
-            {/* Comunicating Component */}
-            <div className="w-full lg:w-1/2">
+            {/* Bottom Half: Comunicating */}
+            <div className="w-full h-1/2">
               <Comunicating />
             </div>
           </div>
