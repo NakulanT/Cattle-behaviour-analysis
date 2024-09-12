@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, send_from_directory, url_for , send_file ,Response
-from flask import Flask, request, jsonify, send_from_directory, url_for , send_file,Response
 import os
 import cv2
 import torch
@@ -16,13 +15,14 @@ import json
 from flask_cors import CORS
 import random
 from datetime import datetime, timedelta
-from datetime import datetime, timedelta
 import calendar
 from datetime import datetime
 import csv
 import shutil
 import threading
 from PIL import Image
+
+from calculation import calculate_total_behavior
 
 
 app = Flask(__name__)
@@ -702,7 +702,7 @@ def filter_cows(data, period):
 @app.route('/cow_behavior', methods=['GET'])
 def get_cow_behavior():
     date_str = request.args.get('date')
-    period = request.args.get('period')  # 'daily', 'weekly', 'monthly'
+    period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
     
     if not date_str:
         return jsonify({'error': 'Please provide a valid date'}), 400
@@ -796,14 +796,12 @@ def get_cow_behavior():
 #     else:
 #         return jsonify({'error': 'No data found for the given date range'}), 404
 
-
-# Route to get cow details by Cow ID
 @app.route('/cow/<cow_id>', methods=['GET'])
 def get_cow_details(cow_id):
-    # date_str = request.args.get('date')
-    # period = request.args.get('period')  # 'daily', 'weekly', 'monthly'
-    date_str='2022-09-21'
-    period='daily'
+    # Get 'date' and 'period' from the query parameters
+    date_str = request.args.get('date', '2022-09-21')
+    period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
+    
     if not date_str:
         return jsonify({'error': 'Please provide a valid date'}), 400
 
@@ -812,35 +810,72 @@ def get_cow_details(cow_id):
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
+    # Initialize lists for storing the start date and other dates
+    start_date_list = []
+    other_dates_list = []
+
     # Determine the end date based on the specified period
     if period == 'daily':
-        # Get 7 days of data for daily
         end_date = start_date - timedelta(days=6)  # Return data for 7 days, including the start date
     elif period == 'weekly':
-        # Get 4 weeks of data for weekly
-        end_date = start_date - timedelta(weeks=4) - timedelta(days=1)  # Return data for 4 weeks
+        end_date = start_date - timedelta(weeks=4)  # Return data for 4 weeks
     elif period == 'monthly':
-        # Get 12 months of data for monthly
-        end_date = (start_date - pd.DateOffset(months=12)) - timedelta(days=1)  # Return data for 12 months
+        end_date = start_date - pd.DateOffset(months=12)  # Return data for 12 months
     else:
         return jsonify({'error': 'Invalid period. Choose from "daily", "weekly", or "monthly".'}), 400
+    
+    # Store the start date in its own list
+    start_date_list.append(start_date.strftime('%Y-%m-%d'))
+    
+    # Generate other dates by iterating from end_date to the day before start_date
+    current_date = end_date
+    while current_date < start_date:
+        other_dates_list.append(current_date.strftime('%Y-%m-%d'))
+        current_date += timedelta(days=1)
+
     # Generate the date range and load the data
     date_range = generate_date_range(start_date=end_date, end_date=start_date)
     data = load_behavior_data(date_range)
-    # print(data)
+
+    num_days = len(other_dates_list)
 
     if data is not None:
-        # Filter the data by the provided Cow ID
+        # Filter the data by both the Cow ID and the Date
         cow_data = data[data['Cow ID'] == cow_id]
+
         if not cow_data.empty:
-            return jsonify(cow_data.to_dict(orient='records'))
+            # Separate cow data based on 'start_date' and 'other_dates'
+            cow_data_start = cow_data[cow_data['Date'] == start_date.strftime('%Y-%m-%d')]
+            cow_data_others = cow_data[cow_data['Date'].isin(other_dates_list)]
+
+            # Calculate total behavior times
+            total_behavior_start = calculate_total_behavior(cow_data_start)
+            total_behavior_others = calculate_total_behavior(cow_data_others)
+            
+            # Ensure all totals are serializable (convert numbers to float)
+            total_behavior_start = {k: float(v) for k, v in total_behavior_start.items()}
+            total_behavior_others = {k: float(v) for k, v in total_behavior_others.items()}
+            
+            # Calculate average behavior over other days
+            avg_behavior_others = {behavior: total / num_days for behavior, total in total_behavior_others.items()}
+
+            # Ensure the averages are serializable (convert to float if needed)
+            avg_behavior_others = {k: float(v) for k, v in avg_behavior_others.items()}
+
+            # Return the cow data, start date, other dates, and total/average times in the response
+            return jsonify({
+                "cow_data_start": cow_data_start.to_dict(orient='records'),  # Data for the start date
+                "cow_data_others": cow_data_others.to_dict(orient='records'),  # Data for other dates
+                "start_date": start_date_list,  # The start date in a separate list
+                "other_dates": other_dates_list,  # Other past dates in a different list
+                "total_behavior_start": total_behavior_start,  # Total behavior time for start date
+                "total_behavior_others": total_behavior_others,  # Total behavior time for other dates
+                "avg_behavior_others": avg_behavior_others  # Average behavior time for other dates
+            })
         else:
-            return jsonify({"error": "Cow ID not found"}), 404
+            return jsonify({"error": f"Cow ID '{cow_id}' not found"}), 404
     else:
         return jsonify({'error': 'No data found for the given date range'}), 404
-
-
-
 
 
 # Route for streaming numbers
