@@ -12,7 +12,7 @@ import {BrowserRouter,Routes, Route} from 'react-router-dom'
 import CowDetailPage from './pages/CowDetailPage';
 import Video from './pages/Video';
 import VideoResults from './pages/VideoResults';
-
+import Sample from './pages/Sample';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -32,6 +32,7 @@ function App() {
           <Route exact path="/cow-details" element={<CowDetailPage/>} />
           <Route exact path="/video" element = { <Video />} /> 
           <Route exact path="/video-results" element = { <VideoResults />} />
+          <Route exact path="/sample" element = {<Sample />} />
           {/* <Route path="/cow-details" component={CowDetailPage} /> */}
 
       </Routes>
