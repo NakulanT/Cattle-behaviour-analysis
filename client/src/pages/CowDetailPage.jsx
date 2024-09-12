@@ -4,8 +4,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const CowDetailPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { title, cows } = location.state || {};
-
+  const { title, cows, trendType } = location.state || {};
+  console.log(title, cows, trendType);
+  
   // If no cow data is provided, redirect back to the main page
   if (!cows) {
     navigate('/');

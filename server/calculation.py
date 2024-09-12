@@ -8,3 +8,6 @@ def calculate_total_behavior(data):
         "total_lying": total_lying,
         "total_standing": total_standing
     }
+
+
+

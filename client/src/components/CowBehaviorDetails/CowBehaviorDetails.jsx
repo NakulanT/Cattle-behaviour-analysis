@@ -109,7 +109,7 @@ const CowBehaviorDetails = ({ trendType, date }) => {
 };
 
 // ProgressCard Component
-const ProgressCard = ({ title, data, totalCows = 50 }) => {
+const ProgressCard = ({ title, data,trendType,date, totalCows = 50 }) => {
   const navigate = useNavigate(); // Use useNavigate instead of useHistory
 
   const cowsInCategory = data ? data.length : 0;
@@ -117,7 +117,7 @@ const ProgressCard = ({ title, data, totalCows = 50 }) => {
 
   const handleClick = () => {
     // Navigate to the cow details page with the cow IDs as state
-    navigate('/cow-details', { state: { title, cows: data } }); // Use navigate instead of history.push
+    navigate('/cow-details', { state: { title, cows: data,trendType,date} }); // Use navigate instead of history.push
   };
 
   return (
