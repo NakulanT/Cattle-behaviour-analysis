@@ -1,35 +1,44 @@
 import React from 'react';
-import { PieChart } from '@mui/x-charts/PieChart';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const COLORS = ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF'];
 
 const Piechart = ({ data }) => {
   // Convert data to the format expected by the PieChart component
-  const chartData = Object.keys(data).map((key, index) => ({
-    id: index,
+  const chartData = Object.keys(data).map((key) => ({
+    name: key,
     value: data[key],
-    label: key,
   }));
 
-  // Parameters for the pie chart
-  const pieParams = {
-    series: [
-      {
-        data: chartData,
-        highlightScope: { fade: 'global', highlight: 'item' },
-        faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' },
-        labels: false, // Remove this line to show labels
-      }
-    ],
-    slotProps: { legend: { hidden: true } },
-    height: 300,
-    width: 600,
-  };
+  // Check if there is valid data
+  if (!chartData || chartData.length === 0) {
+    return <p className="text-white">No data available for the pie chart</p>;
+  }
 
   return (
-    <div className='bg-gray-800 p-6 rounded-lg h-96 w-2/4 flex items-center justify-center'>
-      <PieChart {...pieParams} />
+    <div className="bg-gray-800 p-6 rounded-lg w-full h-full flex items-center justify-center">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            innerRadius={50}
+            outerRadius={100}
+            fill="#8884d8"
+            dataKey="value"
+            label
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
     </div>
   );
-  
 };
 
 export default Piechart;

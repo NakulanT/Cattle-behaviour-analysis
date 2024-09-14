@@ -54,7 +54,7 @@ const DiseaseBarChart = ({ cowId, date }) => {
   }
 
   return (
-    <div className="bg-gray-800 p-4 h-96 w-2/4 rounded-lg">
+    <div className="bg-gray-800 p-4 h-full  rounded-lg">
       <ResponsiveContainer>
         <BarChart
           data={monthlyConditions}

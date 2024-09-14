@@ -61,18 +61,18 @@ const ApexChart = ({ data }) => {
           ranges: [
             {
               from: 0,
-              to: 30,
+              to: 1,
               name: 'Low Value',
               color: '#FFFFFF'  // White for low values
             },
             {
-              from: 31,
-              to: 60,
+              from:2,
+              to: 3,
               name: 'Medium Value',
               color: '#A3E635'  // Green for medium values
             },
             {
-              from: 61,
+              from: 4,
               to: Infinity,
               name: 'High Value',
               color: '#1E293B'  // Dark green for high values
@@ -131,7 +131,7 @@ const ApexChart = ({ data }) => {
   return (
     <div>
       <div id="chart">
-        <ReactApexChart options={options} series={filteredMonths} type="heatmap" height={350} />
+        <ReactApexChart options={options} series={filteredMonths} type="heatmap" height={400} />
       </div>
     </div>
   );

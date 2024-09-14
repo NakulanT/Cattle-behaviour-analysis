@@ -18,7 +18,7 @@ const Linecharts = ({ data }) => {
   }
 
   return (
-    <div className="flex justify-start items-start w-2/4 bg-gray-800 p-2 rounded-lg">
+    <div className="flex justify-start items-start  bg-gray-800 p-2 rounded-lg">
       <div className="w-[100%] p-4 bg-gray-800 rounded-lg">
         {/* Area Chart */}
         <div className="w-[100%] h-[400px] bg-gray-800 border border-gray-600 pr-4 pt-4">

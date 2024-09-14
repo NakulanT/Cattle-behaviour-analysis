@@ -143,8 +143,7 @@ const CowInfoPage1 = () => {
         avg: average_data,
         selected_date: selectedDateDay,
     };
-    console.log(raderdata);
-    
+    console.log(calendarData);
 
     return (
         <div className="bg-gray-900 p-4">
@@ -174,14 +173,37 @@ const CowInfoPage1 = () => {
                 </div>
             </div>
 
-            {/* Display Linecharts based on the data */}
-            <Linecharts data={data} />
+            {/* Data Charts */}
+            <div className="grid grid-cols-12 grid-rows-3 gap-6 mb-6">
+                
+                <div className="col-span-5">
+                    <Linecharts data={data} /> {/* Line charts for standing, eating, lying down */}
+                </div>
+                <div className="col-span-7 row-span-1 items-center bg-gray-800">
+                    {/* <h2 className="text-white mb-2">Monthly Disease Count</h2> */}
+                    <DiseaseBarChart className="items-center" monthlyConditionsdata={Monthly_data} cowId={cowId} date={selectedDate} />
+                </div>
+                
+                <div className="col-span-4 ">
+                    <CattleRadarChart data={raderdata} /> {/* Radar chart for comparison */}
+                </div>
+                
+                <div className="col-span-4">
+                    <Piechart data={Piedata} /> {/* Pie chart for average data */}
+                </div>
+                <div className="col-span-4">
+                    <Piechart data={Piedata} /> {/* Pie chart for average data */}
+                </div>
+                <div className="col-start-2 col-span-10">
+                    {/* <h2 className="text-white mb-2">Condition Calendar</h2> */}
+                    <CalendarHeatmap data={calendarData} /> {/* Heatmap showing condition summary */}
+                </div>
+            </div>
 
-            <h1>Monthly Disease Count</h1>
-            <DiseaseBarChart monthlyConditionsdata={Monthly_data} cowId={cowId} date={selectedDate} />
-            <CattleRadarChart data={raderdata} />
-            <Piechart data={Piedata} />
-            <CalendarHeatmap data={calendarData} /> {/* Pass calendarData to the CalendarHeatmap */}
+
+            {/* Disease Bar Chart */}
+
+            {/* Calendar Heatmap */}
         </div>
     );
 };
