@@ -982,14 +982,7 @@ def get_cow_details(cow_id):
 
     try:
         start_date = datetime.strptime(date_str, '%Y-%m-%d')
-        print(start_date)
-        print(start_date)
-        print(start_date)
-        print(start_date)
-        print(start_date)
-        print(start_date)
-        print(start_date)
-        print(start_date)
+
         
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
@@ -997,13 +990,7 @@ def get_cow_details(cow_id):
     # Initialize lists for storing the start date and other dates
     start_date_list = []
     other_dates_list = []
-    print(start_date)
-    print(start_date)
-    print(start_date)
-    print(start_date)
-    print(start_date)
-    print(start_date)
-    print(start_date)
+
 
     # Determine the end date based on the specified period
     if period == 'daily':
@@ -1172,10 +1159,10 @@ def get_cow_details(cow_id):
 
                 # Calculate the 28-day average (convert from minutes to hours and divide by 28 days)
                 avg_28_days = {
-                    "average_standing": int(round(float(total_standing_sum) / 60 / 28)),
-                    "average_eating": int(round(float(total_eating_sum) / 60 / 28)),
-                    "average_lyingDown": int(round(float(total_lying_sum) / 60 / 28)),
-                    "average_notRecognized": int(round(float(total_not_recognized_sum) / 60 / 28))
+                    "standing": int(round(float(total_standing_sum) / 60 / 28)),
+                    "eating": int(round(float(total_eating_sum) / 60 / 28)),
+                    "lyingDown": int(round(float(total_lying_sum) / 60 / 28)),
+                    "not_reconized": int(round(float(total_not_recognized_sum) / 60 / 28))
                 }
 
                 # Return the weekly data and the 28-day average data in the requested format
@@ -1240,10 +1227,10 @@ def get_cow_details(cow_id):
 
                 # Calculate the overall average for the year (divide by 12 months)
                 avg_data = {
-                    "average_standing": total_standing_sum // 12,
-                    "average_eating": total_eating_sum // 12,
-                    "average_lyingDown": total_lying_sum // 12,
-                    "average_notRecognized": total_not_recognized_sum // 12
+                    "standing": total_standing_sum // 12,
+                    "eating": total_eating_sum // 12,
+                    "lyingDown": total_lying_sum // 12,
+                    "not_reconized": total_not_recognized_sum // 12
 
                 }
 
