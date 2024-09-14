@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { subMonths, format } from 'date-fns';
+import { helix } from 'ldrs'
+
+helix.register()
 
 const DiseaseBarChart = ({ cowId, date }) => {
   const [monthlyConditions, setMonthlyConditions] = useState(null); // Store the monthly conditions data
@@ -46,7 +49,17 @@ const DiseaseBarChart = ({ cowId, date }) => {
   }, [cowId, date]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div className='flex flex-col  justify-center items-center w-full h-full'>
+
+      <l-helix
+        size="96"
+        speed="1.5" 
+        color="#ff99cc" 
+      >
+      </l-helix>
+        <h1 className='text-[#ff99cc] m-4 text-xl'>Analysing....</h1>
+
+    </div>;
   }
 
   if (error) {

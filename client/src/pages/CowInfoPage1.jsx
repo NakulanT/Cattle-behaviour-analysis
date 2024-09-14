@@ -148,7 +148,7 @@ const CowInfoPage1 = () => {
     return (
         <div className="bg-gray-900 p-4">
             {/* Date Picker and Period Dropdown */}
-            <div className="flex items-center space-x-4 mb-6">
+            <div className="flex items-center space-x-4 mb-6 p-8">
                 <div>
                     <label className="text-white">Select Date: </label>
                     <DatePicker 
