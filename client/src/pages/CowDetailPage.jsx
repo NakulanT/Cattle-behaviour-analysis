@@ -4,19 +4,28 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const CowDetailPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { title, cows, trendType } = location.state || {};
-  console.log(title, cows, trendType);
+  const { title, cows, trendType, date } = location.state || {}; // Destructure date here
+  // console.log(title, cows, trendType );
+
+  // console.log("trendType");
+  // console.log(trendType);
+  // console.log(trendType);
+  // console.log("date");
+  // console.log(date);
+  // console.log(date);
+  // console.log(date);
+  
   
   // If no cow data is provided, redirect back to the main page
   if (!cows) {
     navigate('/');
     return null;
   }
-
   const handleCowClick = (cowId) => {
-    // Navigate to the CowDetailPage by Cow ID
-    navigate(`/cow/${cowId}`);
+    // Pass cowId, trendType as period, and date correctly
+    navigate(`/cow/${cowId}`, { state: { period: trendType, date: date } });
   };
+  
 
   return (
     <div className="container mx-auto p-4 bg-gray-800 text-gray-100 rounded-lg">

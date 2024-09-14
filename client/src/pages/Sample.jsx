@@ -44,11 +44,12 @@ const Sample = () => {
   useEffect(() => {
     const fetchMonthlyData = async () => {
       try {
-        const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`, {
-          params: {
-            period: 'monthly',
-            cow_id: cowId,
-          },
+        const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`,
+           {
+          // params: {
+          //   period: 'monthly',
+          //   cow_id: cowId,
+          // },
         });
         console.log(response.data)
         const formattedMonthlyData = response.data.monthlyData.map((month) => ({

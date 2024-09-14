@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
 
 const CowInfoPage = () => {
   const { cowId } = useParams();  // Get cow ID from the route
   const navigate = useNavigate();
+  const location = useLocation(); // Get location object
+  const { trendType, date } = location.state || {}; // Destructure trendType and date
+
   const [cowData, setCowData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Log cowId, trendType, and date for debugging
+  console.log("Cow ID:", cowId, "Trend Type:", trendType, "Date:", date);
+
+  
+  
 
   useEffect(() => {
     // Fetch cow details from the API

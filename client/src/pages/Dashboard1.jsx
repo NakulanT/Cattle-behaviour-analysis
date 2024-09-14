@@ -11,17 +11,16 @@ const Dashboard1 = () => {
     <>
       <div className="bg-gray-900 min-h-screen p-4">
         {/* Main Container with Full Height */}
-        <div className="flex flex-col lg:flex-row h-full w-full gap-5 justify-center p-4 lg:w-4/5 mx-auto">
-          
+        <div className="flex flex-col lg:flex-row h-full w-full gap-5 justify-center p-4 lg:w-4/5 mx-auto transition-transform duration-500 ease-in-out">
           {/* Left Side: Cow Behavior Details - Full Height, Half Width */}
-          <div className="w-full lg:w-1/2">
+          <div className="w-full lg:w-1/2 transform hover:scale-105 transition-transform duration-300 ease-in-out">
             <CowBehaviorDetails trendType={trendType} date={date} />
           </div>
 
           {/* Right Side: Half Width, Full Height */}
           <div className="flex flex-col w-full lg:w-1/2 gap-5 h-full">
             {/* Top Half: TrendControls */}
-            <div className="w-full h-1/2">
+            <div className="w-full h-1/2 transform hover:scale-105 transition-transform duration-300 ease-in-out">
               <TrendControls
                 trendType={trendType}
                 setTrendType={setTrendType}
@@ -31,7 +30,7 @@ const Dashboard1 = () => {
             </div>
 
             {/* Bottom Half: Comunicating */}
-            <div className="w-full h-1/2">
+            <div className="w-full h-1/2 transform hover:scale-105 transition-transform duration-300 ease-in-out">
               <Comunicating />
             </div>
           </div>

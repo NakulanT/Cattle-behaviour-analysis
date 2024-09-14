@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   AreaChart,
   Area,
@@ -10,12 +10,9 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-const Linecharts = ({ weeklyData, monthlyData }) => {
-  const [view, setView] = useState('weekly'); // Default view
+const Linecharts = ({ data }) => {
 
-  // Choose data based on the selected view
-  const data = view === 'weekly' ? weeklyData : monthlyData;
-
+  // If there's no data, display a message
   if (!data || data.length === 0) {
     return <p className="text-white">No data available</p>;
   }
@@ -23,22 +20,6 @@ const Linecharts = ({ weeklyData, monthlyData }) => {
   return (
     <div className="flex justify-start items-start w-2/4 bg-gray-800 p-2 rounded-lg">
       <div className="w-[100%] p-4 bg-gray-800 rounded-lg">
-        {/* Button Group */}
-        <div className="flex justify-start mb-4">
-          <button 
-            onClick={() => setView('weekly')} 
-            className={`py-2 px-4 rounded-lg font-semibold ${view === 'weekly' ? 'bg-blue-500 text-white' : 'bg-gray-600 text-gray-200'}`}
-          >
-            Weekly
-          </button>
-          <button 
-            onClick={() => setView('monthly')} 
-            className={`py-2 px-4 ml-2 rounded-lg font-semibold ${view === 'monthly' ? 'bg-blue-500 text-white' : 'bg-gray-600 text-gray-200'}`}
-          >
-            Monthly
-          </button>
-        </div>
-
         {/* Area Chart */}
         <div className="w-[100%] h-[400px] bg-gray-800 border border-gray-600 pr-4 pt-4">
           <ResponsiveContainer width="100%" height="100%">

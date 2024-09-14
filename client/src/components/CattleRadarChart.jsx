@@ -6,10 +6,11 @@ const CattleRadarChart = ({ data }) => {
   const radarChartData = [
     { behavior: 'Eating', avg: data.avg.eating, selected: data.selected_date.eating },
     { behavior: 'Standing', avg: data.avg.standing, selected: data.selected_date.standing },
-    { behavior: 'Lying Down', avg: data.avg.lyingdown, selected: data.selected_date.lyingdown },
+    { behavior: 'Lying Down', avg: data.avg.lyingDown, selected: data.selected_date.lyingdown },
     { behavior: 'Not Recognized', avg: data.avg.not_reconized, selected: data.selected_date.not_reconized },
     { behavior: 'Movement', avg: data.avg.eating + data.avg.standing, selected: data.selected_date.eating + data.selected_date.standing },
   ];
+console.log(radarChartData);
 
   return (
     <div className="bg-gray-800 p-6 rounded-lg h-96 w-2/4">

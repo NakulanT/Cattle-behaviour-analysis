@@ -33,11 +33,9 @@ const CowBehaviorDetails = ({ trendType, date }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Determine days in the selected period
   const daysInPeriod =
     trendType === 'weekly' ? 7 : trendType === 'monthly' ? new Date(date).getDate() : 1;
 
-  // Fetching cow behavior data from the Flask API
   useEffect(() => {
     const fetchCowBehaviorData = async () => {
       if (date && trendType) {
@@ -47,7 +45,7 @@ const CowBehaviorDetails = ({ trendType, date }) => {
 
           if (response.data.error) {
             setError(response.data.error);
-            setCowBehaviorData(null); // Reset data on error
+            setCowBehaviorData(null);
           } else {
             setCowBehaviorData(response.data);
             setError(null);
@@ -67,11 +65,10 @@ const CowBehaviorDetails = ({ trendType, date }) => {
     return <div>Loading...</div>;
   }
 
-  // Get dynamic thresholds based on the period type
   const { lyingThreshold, eatingThreshold, standingThreshold } = getThresholds(trendType, daysInPeriod);
 
   return (
-    <div className="container mx-auto p-4 bg-gray-800 text-gray-100 rounded-lg">
+    <div className="container mx-auto p-4 bg-gray-800 text-gray-100 rounded-lg shadow-lg transition-all duration-500 ease-in-out transform hover:scale-105">
       <h1 className="text-2xl font-bold mb-4 text-white">Cow Behavior Progress Cards ({trendType})</h1>
 
       {error ? (
@@ -79,26 +76,38 @@ const CowBehaviorDetails = ({ trendType, date }) => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           <ProgressCard
+            date={date}
+            trendType={trendType}
             title={`Lying Less Than ${lyingThreshold.min} Hours`}
             data={cowBehaviorData?.lying_less_than_8}
           />
           <ProgressCard
+            date={date}
+            trendType={trendType}
             title={`Lying More Than ${lyingThreshold.max} Hours`}
             data={cowBehaviorData?.lying_more_than_12}
           />
           <ProgressCard
+            date={date}
+            trendType={trendType}
             title={`Eating Less Than ${eatingThreshold.min} Hours`}
             data={cowBehaviorData?.eating_less_than_3}
           />
           <ProgressCard
+            date={date}
+            trendType={trendType}
             title={`Eating More Than ${eatingThreshold.max} Hours`}
             data={cowBehaviorData?.eating_more_than_6}
           />
           <ProgressCard
+            date={date}
+            trendType={trendType}
             title={`Standing Less Than ${standingThreshold.min} Hours`}
             data={cowBehaviorData?.standing_less_than_4}
           />
           <ProgressCard
+            date={date}
+            trendType={trendType}
             title={`Standing More Than ${standingThreshold.max} Hours`}
             data={cowBehaviorData?.standing_more_than_8}
           />

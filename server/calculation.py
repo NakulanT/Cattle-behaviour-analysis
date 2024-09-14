@@ -5,15 +5,16 @@ import pandas as pd
 DATA_DIR = 'cattle_behavior_data/'
 
 
-def calculate_total_behavior(data):
-    total_eating = data['Eating Time (min)'].sum()
-    total_lying = data['Lying Time (min)'].sum()
-    total_standing = data['Standing Time (min)'].sum()
-    
+def calculate_total_behavior(group):
+    total_eating = group['Eating Time (min)'].sum()
+    total_lying = group['Lying Time (min)'].sum()
+    total_standing = group['Standing Time (min)'].sum()
+    total_not_recognized = group.get('Not Recognized (min)', 0).sum()  # Handle Not Recognized time
     return {
-        "total_eating": total_eating,
-        "total_lying": total_lying,
-        "total_standing": total_standing
+        'total_eating': total_eating,
+        'total_lying': total_lying,
+        'total_standing': total_standing,
+        'total_not_recognized': total_not_recognized
     }
 
 
