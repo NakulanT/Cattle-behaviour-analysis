@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { dotSpinner } from 'ldrs'
+
+dotSpinner.register()
+
 
 const VideoResults = () => {
   const [results, setResults] = useState([]);
@@ -7,28 +11,38 @@ const VideoResults = () => {
   const [completedFrames, setCompletedFrames] = useState(new Set());
   const [error, setError] = useState('');
   const [isFinished, setIsFinished] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(true);
+
+  // Function to reset completed frames
+  const resetCompletedFrames = () => {
+    setCompletedFrames(new Set()); // Reset the completed frames to an empty set
+    setCurrentIndex(0); // Reset the current frame index to 0
+    setIsFinished(false); // Reset finished state
+  };
 
   useEffect(() => {
     const fetchResults = async () => {
       try {
         const response = await axios.get('http://127.0.0.1:5000/video_results');
-        // console.log('Fetched results:', response.data);
 
-        // Convert the object to an array of [key, value] pairs
-        const newResultsArray = Object.entries(response.data).map(([key, value]) => ({
-          frameNumber: value[1]?.frameNumber,
-          imageUrl: value[1]?.image_url,
-          details: value[0],
-        }));
-        console.log(completedFrames);
+        if (response.data.status === 'processing') {
+          setIsProcessing(true);
+        } else {
+          setIsProcessing(false);
+          const newResultsArray = Object.entries(response.data).map(([key, value]) => ({
+            frameNumber: value[1]?.frameNumber,
+            imageUrl: value[1]?.image_url,
+            details: value[0],
+          }));
 
-        // console.log('Processed results array:', newResultsArray);
-
-        // Update results with new frames, excluding already completed ones
-        setResults(prevResults => [
-          ...prevResults,
-          ...newResultsArray.filter(result => !completedFrames.has(result.frameNumber))
-        ]);
+          // Filter results to exclude completed frames
+          const filteredResults = newResultsArray.filter(result => !completedFrames.has(result.frameNumber));
+          
+          setResults(prevResults => [
+            ...prevResults,
+            ...filteredResults
+          ]);
+        }
       } catch (error) {
         console.error('Error fetching video results:', error);
         setError('Error fetching results');
@@ -36,9 +50,9 @@ const VideoResults = () => {
     };
 
     fetchResults();
-    const interval = setInterval(fetchResults, 5000); // Fetch data every 5 seconds
+    const interval = setInterval(fetchResults, 5000);
 
-    return () => clearInterval(interval); // Clean up the interval on component unmount
+    return () => clearInterval(interval);
   }, [completedFrames]);
 
   useEffect(() => {
@@ -46,28 +60,43 @@ const VideoResults = () => {
 
     const displayInterval = setInterval(() => {
       setCurrentIndex(prevIndex => {
-        // Check if all frames are completed
         if (completedFrames.size >= results.length) {
           setIsFinished(true);
           clearInterval(displayInterval); // Stop interval if finished
-          return prevIndex; // Maintain current index
+          return prevIndex;
         }
 
-        // Update index and mark frame as completed
-        const nextIndex = (prevIndex + 1) % results.length;
-        setCompletedFrames(prev => new Set([...prev, results[nextIndex].frameNumber]));
+        // Find the next index that has not been completed
+        let nextIndex = prevIndex;
+        do {
+          nextIndex = (nextIndex + 1) % results.length;
+        } while (completedFrames.has(results[nextIndex]?.frameNumber));
+
+        setCompletedFrames(prev => new Set([...prev, results[nextIndex]?.frameNumber]));
         return nextIndex;
       });
-    }, 1000); // Update display every 1 second
+    }, 1000);
 
-    return () => clearInterval(displayInterval); // Clean up the interval on component unmount
+    return () => clearInterval(displayInterval);
   }, [results, completedFrames, isFinished]);
 
   if (error) {
     return (
-      <div className="bg-gray-900 min-h-screen p-4">
-        <h1 className="text-2xl font-bold text-[#e2e8f0]">Error fetching results</h1>
-        <p className="text-[#e2e8f0]">{error}</p>
+      <div className="bg-gray-900 min-h-screen p-4 flex items-center justify-center">
+        <h1 className="text-2xl font-bold text-[#e2e8f0] mr-8">Error fetching results</h1>
+      </div>
+    );
+  }
+
+  if (isProcessing) {
+    return (
+      <div className="bg-gray-900 min-h-screen p-4 flex items-center justify-center">
+        <l-dot-spinner
+          size="40"
+          speed="0.9"
+          color="white"
+        ></l-dot-spinner>
+        <h1 className="text-2xl font-bold text-[#e2e8f0] ml-4">Processing video, please wait...</h1>
       </div>
     );
   }
@@ -77,6 +106,13 @@ const VideoResults = () => {
       <div className="bg-gray-900 min-h-screen p-4">
         <h1 className="text-2xl font-bold text-[#e2e8f0]">End of Results</h1>
         <p className="text-[#e2e8f0]">All frames have been processed.</p>
+        {/* Button to reset completed frames */}
+        <button
+          className="mt-4 bg-blue-500 text-white p-2 rounded hover:bg-blue-700"
+          onClick={resetCompletedFrames}
+        >
+          Reset Frames
+        </button>
       </div>
     );
   }
@@ -94,15 +130,23 @@ const VideoResults = () => {
   return (
     <div className="bg-gray-900 min-h-screen p-4 ">
       <h1 className="text-2xl font-bold mb-4 text-[#e2e8f0] justify-center text-center">Video Analysis Results</h1>
+      
+      {/* Button to reset completed frames */}
+      <button
+        className="mb-4 bg-blue-500 text-white p-2 rounded hover:bg-blue-700 font-sans-xl"
+        onClick={resetCompletedFrames}
+      >
+        Reset Frames
+      </button>
+
       {imageUrl ? (
         <div className="mb-4">
-        <img
-        src={"http://127.0.0.1:5000" + imageUrl}
-        alt={`Frame ${frameNumber}`}
-        className="w-full  mx-auto rounded-lg shadow-md"
-        style={{ width: '640px', height: '640px' }}
-        />
-
+          <img
+            src={"http://127.0.0.1:5000" + imageUrl}
+            alt={`Frame ${frameNumber}`}
+            className="w-full mx-auto rounded-lg shadow-md"
+            style={{ width: '640px', height: '640px' }}
+          />
         </div>
       ) : (
         <p className="text-[#e2e8f0]">No image available</p>

@@ -14,6 +14,7 @@ import CowInfoPage from './components/CowInfoPage';
 import Video from './pages/Video';
 import VideoResults from './pages/VideoResults';
 import Sample from './pages/Sample';
+import CowInfoPage1 from './pages/CowInfoPage1';
 
 function App() {
 
@@ -22,7 +23,7 @@ function App() {
       <Routes>
           <Route exact path="/" element={<Dashboard1/>} />
           <Route exact path="/cow-details" element={<CowDetailPage/>} />
-          <Route path="/cow/:cowId" element={<CowInfoPage />} />  {/* New route */}
+          <Route path="/cow/:cowId" element={<CowInfoPage1 />} />  {/* New route */}
 
           <Route exact path="/video" element = { <Video />} /> 
           <Route exact path="/video-results" element = { <VideoResults />} />

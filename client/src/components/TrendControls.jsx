@@ -33,38 +33,36 @@ const TrendControls = ({ trendType, setTrendType, date, setDate }) => {
 
   return (
     <ThemeProvider theme={darkTheme}>
-        <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
-          {/* Trend Type Dropdown */}
-          <TextField
-            select
-            label="Trend Type"
-            value={trendType}
-            onChange={(e) => setTrendType(e.target.value)}
-            fullWidth
-            variant="filled"
-            className="mb-4"
-            InputLabelProps={{ className: 'text-gray-300' }}
-            sx={{
-              '& .MuiFilledInput-root': {
-                backgroundColor: '#1e293b', // Background for the dropdown input in dark mode
-              },
-            }}
-          >
-            <MenuItem value="daily">Daily</MenuItem>
-            <MenuItem value="weekly">Weekly</MenuItem>
-            <MenuItem value="monthly">Monthly</MenuItem>
-          </TextField>
+      <div className="bg-gray-800 p-4 rounded-lg shadow-lg transition-all duration-500 ease-in-out transform hover:scale-105">
+        <TextField
+          select
+          label="Trend Type"
+          value={trendType}
+          onChange={(e) => setTrendType(e.target.value)}
+          fullWidth
+          variant="filled"
+          className="mb-4"
+          InputLabelProps={{ className: 'text-gray-300' }}
+          sx={{
+            '& .MuiFilledInput-root': {
+              backgroundColor: '#1e293b',
+            },
+          }}
+        >
+          <MenuItem value="daily">Daily</MenuItem>
+          <MenuItem value="weekly">Weekly</MenuItem>
+          <MenuItem value="monthly">Monthly</MenuItem>
+        </TextField>
 
-          {/* Date Calendar with Localization */}
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <Alert severity="info" style={{ marginBottom: '10px' }}>
-              You selected date: {selectedValue.format('YYYY-MM-DD')}
-            </Alert>
-            <div className="bg-gray-700 p-2 rounded-lg">
-              <DateCalendar value={selectedValue} onChange={onSelect} />
-            </div>
-          </LocalizationProvider>
-        </div>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <Alert severity="info" style={{ marginBottom: '10px' }}>
+            You selected date: {selectedValue.format('YYYY-MM-DD')}
+          </Alert>
+          <div className="bg-gray-700 p-2 rounded-lg">
+            <DateCalendar value={selectedValue} onChange={onSelect} />
+          </div>
+        </LocalizationProvider>
+      </div>
     </ThemeProvider>
   );
 };

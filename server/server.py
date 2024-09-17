@@ -22,7 +22,7 @@ import shutil
 import threading
 from PIL import Image
 
-from calculation import calculate_total_behavior
+from calculation import calculate_total_behavior,get_cow_data_by_id,get_behavior_sums_by_day,convert_to_serializable
 
 
 app = Flask(__name__)
@@ -440,17 +440,109 @@ def extract_date(filename):
 
 
 
+VIDEO_PATH = ''
+COORDINATES = {}
+RESULTS = {}  # Global dictionary to store video processing results
+processing_thread = None  # Thread variable to handle video processing
+stop_event = threading.Event()  # Event to signal when to stop the current thread
+csv_file_path = ''  # Global variable to store the current CSV file path
+
 @app.route('/coordinates', methods=['POST'])
 def handle_coordinates():
+    """
+    Handle coordinates data and start processing the video in a background thread.
+    """
+    global COORDINATES, VIDEO_PATH, processing_thread, stop_event, csv_file_path
+    
     data = request.json
-    # Process the data here
-    # For example, save it to a database or file
-    global COORDINATES
+    # Save the coordinates data to a global variable
     COORDINATES = data
-    print("Data : ",data)
-    return jsonify({'status': 'success', 'data': data}), 200
+    print("Coordinates received: ", data)
 
-#new code may probelm occurs
+    # Stop the ongoing processing thread if it exists
+    if processing_thread and processing_thread.is_alive():
+        print("Stopping current video processing...")
+        stop_event.set()  # Signal the thread to stop
+        processing_thread.join()  # Wait for the thread to stop
+        stop_event.clear()  # Reset the stop event for future threads
+
+        # Delete the previous CSV file if it exists
+        if os.path.exists(csv_file_path):
+            os.remove(csv_file_path)
+            print(f"Deleted old CSV file: {csv_file_path}")
+
+    # Start the video processing in a background thread after coordinates are saved
+    if VIDEO_PATH:
+        # Generate a CSV file name based on the current date
+        current_date = datetime.now().strftime('%Y_%m_%d')
+        csv_file_path = os.path.join('static', f'{current_date}.csv')
+        print("CSV file will be saved at:", csv_file_path)
+
+        # Get the FPS of the video
+        cap = cv2.VideoCapture(VIDEO_PATH)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+
+        # Start video processing in a new background thread
+        processing_thread = threading.Thread(target=process_video, args=(VIDEO_PATH, csv_file_path, fps, stop_event))
+        processing_thread.start()
+        return jsonify({'status': 'success', 'data': data, 'message': 'Video processing started.'}), 200
+    else:
+        return jsonify({'status': 'error', 'message': 'No video uploaded yet.'}), 400
+
+
+def process_video(video_path, csv_file_path, fps, stop_event):
+    """
+    Function to process the video and progressively write results to a CSV file in the background.
+    Terminates if stop_event is set.
+    """
+    global RESULTS
+    RESULTS = {}  # Reset the RESULTS dictionary
+    cap = cv2.VideoCapture(video_path)
+
+    # Create the CSV file with headers based on class_map
+    with open(csv_file_path, mode='w', newline='') as csv_file:
+        fieldnames = ['frameNumber'] + list(class_map.values())
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        while not stop_event.is_set():  # Continue processing unless stop_event is set
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+            if frame_number % int(fps) == 0:  # Extract one frame per second
+                temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
+
+                # Resize the frame to 640x640
+                resized_frame = cv2.resize(frame, (640, 640))
+                cv2.imwrite(temp_frame_path, resized_frame)
+
+                # Process the frame and get the results
+                results, boxed_image_path = process_image(temp_frame_path)
+                print(f"Results for frame {frame_number}: {results}")
+
+                # Create a dictionary for the CSV row with 'nan' if a class is not detected
+                row = {}
+                for class_name in class_map.values():
+                    detected = next((result for result in results if class_name in result), None)
+                    if detected:
+                        row[class_name] = list(detected.values())[0]
+                    else:
+                        row[class_name] = 'nan'
+
+                # Write the row to the CSV file
+                writer.writerow(row)
+
+                # Construct the image URL manually using the base URL
+                image_url = f"/cache/{os.path.basename(boxed_image_path)}"
+
+                # Add the frame number, results, and boxed image URL to the RESULTS dictionary
+                RESULTS[frame_number] = [row, {'frameNumber': frame_number, 'image_url': image_url}]
+
+    cap.release()
+    print(f"Stopped processing video at frame {frame_number}")
+
 
 @app.route('/zone_image', methods=['GET'])
 def zone_image():
@@ -522,8 +614,54 @@ def zone_image():
     # Return the URL of the saved image
     return jsonify({"image_url": url_for('cached_image', filename=image_filename)})
 
-DATA_DIR = 'cattle_behavior_data/'
+@app.route('/zone_video', methods=['POST'])
+def zone_video():
+    """
+    Handle the video upload, save it, and update the VIDEO_PATH.
+    """
+    global VIDEO_PATH
+    print("Video upload request received")
+    
+    if 'video' not in request.files:
+        return {'error': "No video part in the request"}, 400
+    
+    video_file = request.files['video']
+    
+    if video_file.filename == '':
+        return {'error': "No selected file"}, 400
+    
+    video_path = os.path.join(cache_dir, video_file.filename)
+    
+    # Save the uploaded video
+    video_file.save(video_path)
+    print("Video saved successfully at:", video_path)
+    
+    # Update the global VIDEO_PATH
+    if os.path.exists(video_path):
+        VIDEO_PATH = video_path
+        print("Video path updated:", VIDEO_PATH)
+    
+    return {'message': "Video uploaded successfully. Waiting for coordinates."}, 200
 
+
+@app.route('/video_results', methods=['GET'])
+def video_results():
+    """
+    Send the video processing results as JSON data.
+    """
+    global RESULTS
+
+    # Check if the RESULTS global variable is populated
+    if RESULTS:
+        # Return the RESULTS as JSON data
+        return jsonify(RESULTS)
+    else:
+        return jsonify({'status': 'processing', 'message': 'Video processing is still ongoing, no results yet.'}), 200
+
+
+
+
+DATA_DIR = 'cattle_behavior_data/'
 
 
 # Helper function to convert minutes to hours for specified columns
@@ -554,84 +692,6 @@ def convert_to_hours_minutes(decimal_hours):
     hours = int(decimal_hours)
     minutes = int((decimal_hours - hours) * 60)
     return f"{hours} hours and {minutes} minutes"
-
-
-# Function to convert minutes to 'X hours Y minutes' format
-def convert_to_hours_minutes(minutes):
-    hours = minutes // 60
-    mins = minutes % 60
-    return f"{hours} hours and {mins} minutes"
-
-# Filter cows based on behavior for the selected period
-# def filter_cows(data, period):
-#     data.columns = data.columns.str.strip()
-
-#     # Group by 'Cow ID' and sum the time spent in different behaviors over the selected period
-#     grouped_data = data.groupby('Cow ID').agg({
-#         'Lying Time (min)': 'sum',
-#         'Eating Time (min)': 'sum',
-#         'Standing Time (min)': 'sum'
-#     })
-
-#     # Convert the summed times into hours and minutes
-#     grouped_data['Lying Time (hours)'] = grouped_data['Lying Time (min)'] / 60
-#     grouped_data['Eating Time (hours)'] = grouped_data['Eating Time (min)'] / 60
-#     grouped_data['Standing Time (hours)'] = grouped_data['Standing Time (min)'] / 60
-
-#     # Keep all cow data for general output
-#     all_cows_data = data.groupby('Cow ID').first().reset_index()
-
-#     # Filtering logic for different behavior conditions based on the selected period
-#     if period == 'daily':
-#         # Daily filter thresholds
-#         eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < 5]
-#         eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > 6]
-#         lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < 8]
-#         lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > 12]
-#         standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < 4]
-#         standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > 8]
-#     elif period == 'weekly':
-#         # Weekly filter thresholds (times 7 days)
-#         lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < (8 * 7)]
-#         lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > (12 * 7)]
-#         eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < (3 * 7)]
-#         eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > (6 * 7)]
-#         standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < (4 * 7)]
-#         standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > (8 * 7)]
-#     elif period == 'monthly':
-#         # Monthly filter thresholds (approx 30 days)
-#         lying_less_than_8 = grouped_data[grouped_data['Lying Time (hours)'] < (8 * 30)]
-#         lying_more_than_12 = grouped_data[grouped_data['Lying Time (hours)'] > (12 * 30)]
-#         eating_less_than_3 = grouped_data[grouped_data['Eating Time (hours)'] < (3 * 30)]
-#         eating_more_than_6 = grouped_data[grouped_data['Eating Time (hours)'] > (6 * 30)]
-#         standing_less_than_4 = grouped_data[grouped_data['Standing Time (hours)'] < (4 * 30)]
-#         standing_more_than_8 = grouped_data[grouped_data['Standing Time (hours)'] > (8 * 30)]
-
-#     # Join the filtered data with the original all_cows_data based on Cow ID and add formatted time values
-#     def join_filtered_data(filtered_group):
-#         filtered_cows = all_cows_data[all_cows_data['Cow ID'].isin(filtered_group.index)]
-        
-#         # Add formatted time data for each cow
-#         filtered_cows['Lying Time'] = filtered_cows['Lying Time (min)'].apply(convert_to_hours_minutes)
-#         filtered_cows['Eating Time'] = filtered_cows['Eating Time (min)'].apply(convert_to_hours_minutes)
-#         filtered_cows['Standing Time'] = filtered_cows['Standing Time (min)'].apply(convert_to_hours_minutes)
-
-#         return filtered_cows
-
-#     # Apply the join for each condition and return the entire cow data
-#     filtered_results = {
-#         'lying_less_than_8': join_filtered_data(lying_less_than_8),
-#         'lying_more_than_12': join_filtered_data(lying_more_than_12),
-#         'eating_less_than_3': join_filtered_data(eating_less_than_3),
-#         'eating_more_than_6': join_filtered_data(eating_more_than_6),
-#         'standing_less_than_4': join_filtered_data(standing_less_than_4),
-#         'standing_more_than_8': join_filtered_data(standing_more_than_8)
-#     }
-
-#     # Return all filtered groups with full cow data
-#     return filtered_results
-
-
 
 
 def filter_cows(data, period):
@@ -705,6 +765,9 @@ def get_cow_behavior():
     period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
     
     if not date_str:
+        print(date_str)
+        print(date_str)
+        print(date_str)
         return jsonify({'error': 'Please provide a valid date'}), 400
 
     try:
@@ -738,149 +801,84 @@ def get_cow_behavior():
 
 
 
-
-# @app.route('/cow/<cow_id>', methods=['GET'])
-# def get_cow_details(cow_id):
-#     date_str = '2022-09-21'
-#     period = 'daily'
+@app.route('/cow_all_data/<cow_id>', methods=['GET'])
+def get_all_day_cow_details(cow_id):
+    all_data_cow = get_cow_data_by_id(cow_id)
     
-#     if not date_str:
-#         return jsonify({'error': 'Please provide a valid date'}), 400
+    if all_data_cow is not None:
+        behavior_sums = get_behavior_sums_by_day(all_data_cow)
 
-#     try:
-#         start_date = datetime.strptime(date_str, '%Y-%m-%d')
-#     except ValueError:
-#         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        # Store the behavior sums for each day in a dictionary
+        cow_behavior_dict = {}
 
-#     # Initialize lists for storing the start date and other dates
-#     start_date_list = []
-#     other_dates_list = []
+        # Create a new dictionary to store the behavior conditions for monthly aggregation
+        monthly_conditions = {}
 
-#     # Determine the end date based on the specified period and store the start and other dates in lists
-#     if period == 'daily':
-#         # Get 7 days of data for daily (past 7 days)
-#         end_date = start_date - timedelta(days=6)  # Return data for 7 days, including the start date
-#     elif period == 'weekly':
-#         # Get 4 weeks of data for weekly (past 4 weeks)
-#         end_date = start_date - timedelta(weeks=4) - timedelta(days=1)  # Return data for 4 weeks
-#     elif period == 'monthly':
-#         # Get 12 months of data for monthly (past 12 months)
-#         end_date = (start_date - pd.DateOffset(months=12)) - timedelta(days=1)  # Return data for 12 months
-#     else:
-#         return jsonify({'error': 'Invalid period. Choose from "daily", "weekly", or "monthly".'}), 400
-    
-#     # Store the start date and other dates
-#     start_date_list.append(start_date.strftime('%Y-%m-%d'))
-    
-#     current_date = start_date
-#     while current_date > end_date:
-#         current_date -= timedelta(days=1)
-#         other_dates_list.append(current_date.strftime('%Y-%m-%d'))
+        for date, totals in behavior_sums.items():
+            cow_behavior_dict[date] = {
+                "total_eating": int(totals['total_eating']),  # Convert to native Python int
+                "total_lying": int(totals['total_lying']),    # Convert to native Python int
+                "total_standing": int(totals['total_standing'])  # Convert to native Python int
+            }
 
-#     # Generate the date range and load the data (from end_date to start_date)
-#     date_range = generate_date_range(start_date=end_date, end_date=start_date)
-#     data = load_behavior_data(date_range)
-    
-#     if data is not None:
-#         # Filter the data by the provided Cow ID
-#         cow_data = data[data['Cow ID'] == cow_id]
-#         if not cow_data.empty:
-#             # Return the cow data, start date, and other dates in the response
-#             return jsonify({
-#                 "cow_data": cow_data.to_dict(orient='records'),
-#                 "start_date": start_date_list,
-#                 "other_dates": other_dates_list
-#             })
-#         else:
-#             return jsonify({"error": "Cow ID not found"}), 404
-#     else:
-#         return jsonify({'error': 'No data found for the given date range'}), 404
+        # Convert to hours and apply the conditions
+        behavior_d = {}
+        for date, data in cow_behavior_dict.items():
+            data['Eating Time (hours)'] = data['total_eating'] / 60
+            data['Lying Time (hours)'] = data['total_lying'] / 60
+            data['Standing Time (hours)'] = data['total_standing'] / 60
 
-# @app.route('/cow/<cow_id>', methods=['GET'])
-# def get_cow_details(cow_id):
-#     # Get 'date' and 'period' from the query parameters
-#     date_str = request.args.get('date', '2022-09-21')
-#     period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
-    
-#     if not date_str:
-#         return jsonify({'error': 'Please provide a valid date'}), 400
+            # Convert date string to datetime for monthly aggregation
+            date_obj = pd.to_datetime(date)
 
-#     try:
-#         start_date = datetime.strptime(date_str, '%Y-%m-%d')
-#     except ValueError:
-#         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+            # For each day, create a list with condition results (1 or 0)
+            behavior_d[date] = {
+                "eating_less_than_5": 1 if data['Eating Time (hours)'] < 5 else 0,
+                "eating_more_than_6": 1 if data['Eating Time (hours)'] > 6 else 0,
+                "lying_less_than_8": 1 if data['Lying Time (hours)'] < 8 else 0,
+                "lying_more_than_12": 1 if data['Lying Time (hours)'] > 12 else 0,
+                "standing_less_than_4": 1 if data['Standing Time (hours)'] < 4 else 0,
+                "standing_more_than_8": 1 if data['Standing Time (hours)'] > 8 else 0
+            }
 
-#     # Initialize lists for storing the start date and other dates
-#     start_date_list = []
-#     other_dates_list = []
+            # Calculate the sum of the condition flags and add it as "value"
+            total_value = (
+                behavior_d[date]['eating_less_than_5'] +
+                behavior_d[date]['eating_more_than_6'] +
+                behavior_d[date]['lying_less_than_8'] +
+                behavior_d[date]['lying_more_than_12'] +
+                behavior_d[date]['standing_less_than_4'] +
+                behavior_d[date]['standing_more_than_8']
+            )
+            behavior_d[date]["value"] = total_value
 
-#     # Determine the end date based on the specified period
-#     if period == 'daily':
-#         end_date = start_date - timedelta(days=6)  # Return data for 7 days, including the start date
-#     elif period == 'weekly':
-#         end_date = start_date - timedelta(weeks=4)  # Return data for 4 weeks
-#     elif period == 'monthly':
-#         end_date = start_date - pd.DateOffset(months=12)  # Return data for 12 months
-#     else:
-#         return jsonify({'error': 'Invalid period. Choose from "daily", "weekly", or "monthly".'}), 400
-    
-#     # Store the start date in its own list
-#     start_date_list.append(start_date.strftime('%Y-%m-%d'))
-    
-#     # Generate other dates by iterating from end_date to the day before start_date
-#     current_date = end_date
-#     while current_date < start_date:
-#         other_dates_list.append(current_date.strftime('%Y-%m-%d'))
-#         current_date += timedelta(days=1)
-
-#     # Generate the date range and load the data
-#     date_range = generate_date_range(start_date=end_date, end_date=start_date)
-#     data = load_behavior_data(date_range)
-
-#     num_days = len(other_dates_list)
-
-#     if data is not None:
-#         # Filter the data by both the Cow ID and the Date
-#         cow_data = data[data['Cow ID'] == cow_id]
-
-#         if not cow_data.empty:
-#             # Separate cow data based on 'start_date' and 'other_dates'
-#             cow_data_start = cow_data[cow_data['Date'] == start_date.strftime('%Y-%m-%d')]
-#             cow_data_others = cow_data[cow_data['Date'].isin(other_dates_list)]
-
-#             # Calculate total behavior times
-#             total_behavior_start = calculate_total_behavior(cow_data_start)
-#             total_behavior_others = calculate_total_behavior(cow_data_others)
+            # Aggregate by month
+            month = date_obj.strftime('%Y-%m')
+            if month not in monthly_conditions:
+                monthly_conditions[month] = {
+                    "eating_less_than_5": 0,
+                    "eating_more_than_6": 0,
+                    "lying_less_than_8": 0,
+                    "lying_more_than_12": 0,
+                    "standing_less_than_4": 0,
+                    "standing_more_than_8": 0
+                }
             
-#             # Ensure all totals are serializable (convert numbers to float)
-#             total_behavior_start = {k: float(v) for k, v in total_behavior_start.items()}
-#             total_behavior_others = {k: float(v) for k, v in total_behavior_others.items()}
-            
-#             # Calculate average behavior over other days
-#             avg_behavior_others = {behavior: total / num_days for behavior, total in total_behavior_others.items()}
+            # Add daily condition results to monthly count
+            monthly_conditions[month]['eating_less_than_5'] += behavior_d[date]['eating_less_than_5']
+            monthly_conditions[month]['eating_more_than_6'] += behavior_d[date]['eating_more_than_6']
+            monthly_conditions[month]['lying_less_than_8'] += behavior_d[date]['lying_less_than_8']
+            monthly_conditions[month]['lying_more_than_12'] += behavior_d[date]['lying_more_than_12']
+            monthly_conditions[month]['standing_less_than_4'] += behavior_d[date]['standing_less_than_4']
+            monthly_conditions[month]['standing_more_than_8'] += behavior_d[date]['standing_more_than_8']
 
-#             # Ensure the averages are serializable (convert to float if needed)
-#             avg_behavior_others = {k: float(v) for k, v in avg_behavior_others.items()}
-
-#             # Return the cow data, start date, other dates, and total/average times in the response
-#             return jsonify({
-#                 "cow_data_start": cow_data_start.to_dict(orient='records'),  # Data for the start date
-#                 "cow_data_others": cow_data_others.to_dict(orient='records'),  # Data for other dates
-#                 "start_date": start_date_list,  # The start date in a separate list
-#                 "other_dates": other_dates_list,  # Other past dates in a different list
-#                 "total_behavior_start": total_behavior_start,  # Total behavior time for start date
-#                 "total_behavior_others": total_behavior_others,  # Total behavior time for other dates
-#                 "avg_behavior_others": avg_behavior_others  # Average behavior time for other dates
-#             })
-#         else:
-#             return jsonify({"error": f"Cow ID '{cow_id}' not found"}), 404
-#     else:
-#         return jsonify({'error': 'No data found for the given date range'}), 404
-
-
-
-
-
+        # Return the results as JSON
+        return jsonify({
+            "condition_summary": behavior_d,
+            "monthly_conditions": monthly_conditions
+        })
+    
+    return jsonify({"error": "No data found for cow ID"}), 404
 
 
 
@@ -888,22 +886,27 @@ def get_cow_behavior():
 @app.route('/cow/<cow_id>', methods=['GET'])
 def get_cow_details(cow_id):
     # Get 'date' and 'period' from the query parameters
-    # date_str = request.args.get('date', '2022-09-21')
-    period = request.args.get('period', 'daily')  # Default to 'daily' if not provided
-    date_str='2023-09-21'
-    print("period",period)
+    date_str = request.args.get('date')
+    period = request.args.get('period','daily')  # Default to 'daily' if not provided
+    # date_str='2023-09-21'
+    # period='weekly'
+
+
 
     if not date_str:
         return jsonify({'error': 'Please provide a valid date'}), 400
 
     try:
         start_date = datetime.strptime(date_str, '%Y-%m-%d')
+
+        
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
     # Initialize lists for storing the start date and other dates
     start_date_list = []
     other_dates_list = []
+
 
     # Determine the end date based on the specified period
     if period == 'daily':
@@ -927,62 +930,70 @@ def get_cow_details(cow_id):
     # Generate the date range and load the data
     date_range = generate_date_range(start_date=end_date, end_date=start_date)
     data = load_behavior_data(date_range)
+    print('date_range')
+    print(date_range)
+    print(date_range)
+    print(date_range)
+    print(date_range)
 
     if data is not None:
         # Filter the data by both the Cow ID and the Date
         cow_data = data[data['Cow ID'] == cow_id]
+        cow_data_1 = data[(data['Cow ID'] == cow_id) & (data['Date'] == start_date.strftime('%Y-%m-%d'))]
+        cow_data_1=convert_to_serializable(cow_data_1)
+        total_eating = 0
+        total_lying = 0
+        total_standing = 0
+        total_NotRecognized=0
+
+
+        # print("selected_date")
+        # print(cow_data_1)
+        for entry in cow_data_1:
+            total_eating += entry.get('Eating Time (min)', 0)
+            total_lying += entry.get('Lying Time (min)', 0)
+            total_standing += entry.get('Standing Time (min)', 0)
+            total_NotRecognized  += entry.get('Not Recognized (min)', 0)
+
+        # Output the totals
+        total_eating_hours = int(round(float(total_eating) / 60)) 
+        total_lying_hours = int(round(float(total_lying) / 60))
+        total_standing_hours = int(round(float(total_standing) / 60))
+        total_NotRecognized = int(round(float(total_NotRecognized) / 60)) # int(round(float(total_NotRecognized) / 60
+
+        # Output the totals in hours
+        totals = {
+            "eating": total_eating_hours,
+            "standing": total_lying_hours,
+            "lyingdown": total_standing_hours,
+            "not_reconized":total_NotRecognized
+        }
 
         if not cow_data.empty:
 
-            # if period == 'daily':
-            #     # Initialize a dictionary to store behavior totals for each date
-            #     daily_behavior_totals = {}
 
-            #     # Group the data by each date
-            #     grouped_by_date = cow_data.groupby('Date')
-
-            #     # Variables to store cumulative totals for calculating the 7-day average
-            #     cumulative_totals = {"total_eating": 0, "total_lying": 0, "total_standing": 0}
-            #     total_days = len(other_dates_list)  # Assuming we have exactly 7 days of data
-
-            #     # Iterate through each group (date) and calculate total behavior times
-            #     for date, group in grouped_by_date:
-            #         total_behavior = calculate_total_behavior(group)
-                    
-            #         # Convert the daily totals from minutes to hours and round to the nearest integer
-            #         daily_totals = {k: int(round(float(v) / 60)) for k, v in total_behavior.items()}
-                    
-            #         # Add the daily totals to the cumulative totals
-            #         cumulative_totals = {k: cumulative_totals[k] + daily_totals[k] for k in cumulative_totals.keys()}
-                    
-            #         # Store the daily totals
-            #         daily_behavior_totals[date] = daily_totals
-
-            #     # Calculate the average behavior for the 7-day period and round to the nearest integer
-            #     average_behavior = {k: int(round(cumulative_totals[k] / total_days)) for k in cumulative_totals.keys()}
-
-            #     # Return the cow data, behavior totals for each date, and the 7-day average
-            #     return jsonify({
-            #         "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
-            #         "7_days_behavior_totals": daily_behavior_totals,  # Behavior totals for each date
-            #         "average_7_days_behavior": average_behavior,  # 7-day average behavior in hours (rounded)
-            #         "start_date": start_date_list,  # The start date in a separate list
-            #         "other_dates": other_dates_list  # Other past dates in a different list
-            #     })
             if period == 'daily':
                 # Initialize a list to store daily behavior data in the required format
                 weekly_data = []
 
                 # Group the data by each date
                 grouped_by_date = cow_data.groupby('Date')
+                print("grouped_by_date")
+                print(grouped_by_date)
+                print(grouped_by_date)
 
                 # Variables to store cumulative totals for calculating the 7-day average
-                cumulative_totals = {"total_eating": 0, "total_lying": 0, "total_standing": 0}
-                total_days = len(other_dates_list)  # Assuming we have exactly 7 days of data
+                cumulative_totals = {"total_eating": 0, "total_lying": 0, "total_standing": 0,"total_not_recognized":0}
+                
+                # Count the number of days for which data is available
+                total_days = len(grouped_by_date)  # Total number of unique days with data
 
                 # Iterate through each group (date) and calculate total behavior times
                 day_counter = 1  # For naming the days (Day 1, Day 2, etc.)
                 for date, group in grouped_by_date:
+                    # print("group")
+                    # print(group)
+                    # print(group)
                     total_behavior = calculate_total_behavior(group)
                     
                     # Convert the daily totals from minutes to hours and round to the nearest integer
@@ -996,78 +1007,30 @@ def get_cow_details(cow_id):
                         "name": f"Day {day_counter}",
                         "standing": daily_totals["total_standing"],
                         "eating": daily_totals["total_eating"],
-                        "lyingDown": daily_totals["total_lying"]
+                        "lyingDown": daily_totals["total_lying"],
+                        "notRecognized": daily_totals["total_not_recognized"]
                     })
+                    print("week_data")
+                    print(weekly_data)
+                    print(weekly_data)
+                    print(weekly_data)
                     
                     day_counter += 1
 
-                # Calculate the average behavior for the 7-day period and round to the nearest integer
+                # Calculate the average behavior for the available days (not necessarily 7) and round to the nearest integer
                 average_behavior = {k: int(round(cumulative_totals[k] / total_days)) for k in cumulative_totals.keys()}
 
-                # Return the cow data and the weekly formatted data
-                print("weekly :",weekly_data)
+                # Return the cow data and the daily behavior data
                 return jsonify({
-                    # "cow_data": cow_data.to_dict(orient='records'),  # Data for the cow
-                    "weeklyData": weekly_data,  # Behavior data for each of the 7 days
-                    # # "average_7_days_behavior": {
-                    #     "standing": average_behavior["total_standing"],
-                    #     "eating": average_behavior["total_eating"],
-                    #     "lyingDown": average_behavior["total_lying"]
-                    # },  # 7-day average behavior in hours (rounded)
-                    # "start_date": start_date_list,  # The start date in a separate list
-                    # "other_dates": other_dates_list  # Other past dates in a different list
+                    "daily": weekly_data, 
+                    "average_data": {
+                        "standing": average_behavior["total_standing"],
+                        "eating": average_behavior["total_eating"],
+                        "lyingDown": average_behavior["total_lying"],
+                        "not_reconized": average_behavior["total_not_recognized"]
+                    },  
+                    "selected_day":totals
                 })
-
-            
-            # elif period == 'weekly':
-            #     # Initialize a dictionary to store each week's total, average behavior, and dates
-            #     weekly_averages = {}
-            #     total_weeks = 4  # Limit to 4 weeks
-
-            #     # Split `other_dates_list` into 4 weeks, each containing 7 days
-            #     weeks = [other_dates_list[i:i + 7] for i in range(0, min(len(other_dates_list), 28), 7)]
-                
-            #     # Ensure we have exactly 4 weeks (4 sets of 7 days)
-            #     for week_num, week_dates in enumerate(weeks, start=1):
-            #         week_data = cow_data[cow_data['Date'].isin(week_dates)]
-
-            #         if not week_data.empty:
-            #             # Calculate the total and average behavior for this week
-            #             total_behavior_week = calculate_total_behavior(week_data)
-                        
-            #             # Convert all values to Python `int` types to avoid serialization issues
-            #             total_behavior_week = {k: int(v) for k, v in total_behavior_week.items()}
-
-            #             # Convert behavior values from minutes to hours and round them to integers
-            #             avg_behavior_week = {k: int(round(float(v) / 60 / 7)) for k, v in total_behavior_week.items()}
-
-
-
-            #             # avg_behavior_week = ''
-
-            #             # Get the start and end date for the current week
-            #             week_start_date = week_dates[0]
-            #             week_end_date = week_dates[-1]
-
-            #             # Store the total, averages, and start/end date under week_1, week_2, etc.
-            #             week_key = f"week_{week_num}"
-            #             weekly_averages[week_key] = {
-            #                 "total_eating": total_behavior_week.get("total_eating", 0),
-            #                 "total_standing": total_behavior_week.get("total_standing", 0),
-            #                 "total_lying": total_behavior_week.get("total_lying", 0),
-            #                 "avg_total_eating": avg_behavior_week.get("total_eating", 0),
-            #                 "avg_total_standing": avg_behavior_week.get("total_standing", 0),
-            #                 "avg_total_lying": avg_behavior_week.get("total_lying", 0),
-            #                 # "week_start_date": week_start_date,
-            #                 # "week_end_date": week_end_date
-            #             }
-
-            #     # Return the weekly averages in the requested format
-            #     return jsonify({
-            #         "weekly": weekly_averages,  # Behavior totals and averages for each week
-            #         # "start_date": start_date_list,  # The start date in a separate list
-            #         # "other_dates": other_dates_list[:total_weeks * 7]  # Limit to dates in the range of 4 weeks
-            #     })
 
             elif period == 'weekly':
                 # Initialize a list to store weekly data in the required format
@@ -1075,10 +1038,15 @@ def get_cow_details(cow_id):
 
                 total_weeks = 4  # Limit to 4 weeks
 
+                # Initialize totals for calculating the 28-day average
+                total_standing_sum = 0
+                total_eating_sum = 0
+                total_lying_sum = 0
+                total_not_recognized_sum = 0
+
                 # Split `other_dates_list` into 4 weeks, each containing 7 days
                 weeks = [other_dates_list[i:i + 7] for i in range(0, min(len(other_dates_list), 28), 7)]
 
-                # Ensure we have exactly 4 weeks (4 sets of 7 days)
                 for week_num, week_dates in enumerate(weeks, start=1):
                     week_data = cow_data[cow_data['Date'].isin(week_dates)]
 
@@ -1086,7 +1054,7 @@ def get_cow_details(cow_id):
                         # Calculate the total and average behavior for this week
                         total_behavior_week = calculate_total_behavior(week_data)
 
-                        # Convert behavior values from minutes to hours and round them to integers
+                        # Convert behavior values from minutes to hours and round them to integers (average per day in a week)
                         avg_behavior_week = {k: int(round(float(v) / 60 / 7)) for k, v in total_behavior_week.items()}
 
                         # Append the weekly behavior data to the list in the required format
@@ -1094,60 +1062,41 @@ def get_cow_details(cow_id):
                             "name": str(week_num),  # Week number as the name
                             "standing": avg_behavior_week.get("total_standing", 0),
                             "eating": avg_behavior_week.get("total_eating", 0),
-                            "lyingDown": avg_behavior_week.get("total_lying", 0)
+                            "lyingDown": avg_behavior_week.get("total_lying", 0),
+                            "notRecognized": avg_behavior_week.get("total_not_recognized", 0),
+
                         })
 
-                # Return the weekly data in the requested format
-                return jsonify({
-                    "weeklyData": weekly_data  # List of weekly behavior data
-                })
+                        # Add weekly total behavior to the overall 28-day sum
+                        total_standing_sum += total_behavior_week.get("total_standing", 0)
+                        total_eating_sum += total_behavior_week.get("total_eating", 0)
+                        total_lying_sum += total_behavior_week.get("total_lying", 0)
+                        total_not_recognized_sum += total_behavior_week.get("total_not_recognized", 0)
 
-            # elif period == 'monthly':
-            #     # Initialize a dictionary to store monthly data
-            #     monthly_data = {}
-                
-            #     # Get the last 12 months starting from the start_date
-            #     current_date = start_date
-            #     for i in range(12):
-            #         # Get the start and end of the current month
-            #         month_start = current_date.replace(day=1)
-            #         next_month_start = (month_start + pd.DateOffset(months=1)).replace(day=1)
-            #         month_end = next_month_start - timedelta(days=1)
-                    
-            #         # Filter cow data for the current month
-            #         month_data = cow_data[(cow_data['Date'] >= month_start.strftime('%Y-%m-%d')) & 
-            #                             (cow_data['Date'] <= month_end.strftime('%Y-%m-%d'))]
-                    
-            #         # Calculate total behavior times for the month
-            #         total_behavior_month = calculate_total_behavior(month_data)
-                    
-            #         # Convert the totals to hours (currently in minutes) and round to integers
-            #         total_behavior_month = {k: int(round(float(v) / 60)) for k, v in total_behavior_month.items()}
-                    
-            #         # Calculate average behavior times for the month (if there are enough days of data)
-            #         num_days_in_month = month_data['Date'].nunique()  # Number of unique days in the month
-            #         if num_days_in_month > 0:
-            #             avg_behavior_month = {k: int(round(float(v) / num_days_in_month)) for k, v in total_behavior_month.items()}
-            #         else:
-            #             avg_behavior_month = {k: 0 for k in total_behavior_month.keys()}  # Handle empty months
-                    
-            #         # Store the start and end dates for the month, along with totals and averages
-            #         monthly_data[f'month_{i+1}'] = {
-            #             'start_date': month_start.strftime('%Y-%m-%d'),
-            #             'end_date': month_end.strftime('%Y-%m-%d'),
-            #             'total_behavior': total_behavior_month,
-            #             'avg_behavior': avg_behavior_month
-            #         }
-                    
-            #         # Move to the previous month
-            #         current_date = month_start - pd.DateOffset(months=1)
-                
-            #     # Return the monthly data
-            #     return jsonify({
-            #         "monthly_data": monthly_data
-            #     })
-            elif period == 'monthly':               # Initialize a list to store monthly data in the required format
+                # Calculate the 28-day average (convert from minutes to hours and divide by 28 days)
+                avg_28_days = {
+                    "standing": int(round(float(total_standing_sum) / 60 / 28)),
+                    "eating": int(round(float(total_eating_sum) / 60 / 28)),
+                    "lyingDown": int(round(float(total_lying_sum) / 60 / 28)),
+                    "not_reconized": int(round(float(total_not_recognized_sum) / 60 / 28))
+                }
+
+                # Return the weekly data and the 28-day average data in the requested format
+                return jsonify({
+                    "weeklyData": weekly_data,
+                    "average_data": avg_28_days,  
+                    "selected_day":totals
+                })
+            
+            elif period == 'monthly':  
+                # Initialize a list to store monthly data in the required format
                 monthly_data = []
+
+                # Initialize totals for each behavior to calculate the overall average later
+                total_standing_sum = 0
+                total_eating_sum = 0
+                total_lying_sum = 0
+                total_not_recognized_sum = 0
 
                 # Get the last 12 months starting from the start_date
                 current_date = start_date
@@ -1179,54 +1128,44 @@ def get_cow_details(cow_id):
                         "name": f"{i+1}",  # Month number as the name
                         "standing": avg_behavior_month["total_standing"],
                         "eating": avg_behavior_month["total_eating"],
-                        "lyingDown": avg_behavior_month["total_lying"]
+                        "lyingDown": avg_behavior_month["total_lying"],
+                        "notRecognized": avg_behavior_month["total_not_recognized"]
                     })
+                    
+                    # Add the monthly averages to the total sums
+                    total_standing_sum += avg_behavior_month["total_standing"]
+                    total_eating_sum += avg_behavior_month["total_eating"]
+                    total_lying_sum += avg_behavior_month["total_lying"]
+                    total_not_recognized_sum += avg_behavior_month["total_not_recognized"]
                     
                     # Move to the previous month
                     current_date = month_start - pd.DateOffset(months=1)
 
-                # Return the monthly data in the requested format
+                # Calculate the overall average for the year (divide by 12 months)
+                avg_data = {
+                    "standing": total_standing_sum // 12,
+                    "eating": total_eating_sum // 12,
+                    "lyingDown": total_lying_sum // 12,
+                    "not_reconized": total_not_recognized_sum // 12
+
+                }
+
+                # Return the monthly data and the average data
                 return jsonify({
-                    "monthlyData": monthly_data  # List of monthly behavior data
+                    "monthlyData": monthly_data,
+                    "average_data": avg_data,  
+                    "selected_day":totals
                 })
 
  
             else:
-                # Separate cow data based on 'start_date' and 'other_dates'
-                cow_data_start = cow_data[cow_data['Date'] == start_date.strftime('%Y-%m-%d')]
-                cow_data_others = cow_data[cow_data['Date'].isin(other_dates_list)]
 
-                # Calculate total behavior times
-                total_behavior_start = calculate_total_behavior(cow_data_start)
-                total_behavior_others = calculate_total_behavior(cow_data_others)
+                return jsonify({"error": f"Cow ID '{cow_id}' not found"}), 404
 
-                # Ensure all totals are serializable (convert numbers to float)
-                total_behavior_start = {k: float(v) for k, v in total_behavior_start.items()}
-                total_behavior_others = {k: float(v) for k, v in total_behavior_others.items()}
-
-                # Calculate average behavior over other days
-                num_days = len(other_dates_list)
-                avg_behavior_others = {behavior: total / num_days for behavior, total in total_behavior_others.items()}
-                avg_behavior_others = {k: float(v) for k, v in avg_behavior_others.items()}
-
-                # Return the cow data, start date, other dates, and total/average times in the response
-                return jsonify({
-                    "cow_data_start": cow_data_start.to_dict(orient='records'),  # Data for the start date
-                    "cow_data_others": cow_data_others.to_dict(orient='records'),  # Data for other dates
-                    "start_date": start_date_list,  # The start date in a separate list
-                    "other_dates": other_dates_list,  # Other past dates in a different list
-                    "total_behavior_start": total_behavior_start,  # Total behavior time for start date
-                    "total_behavior_others": total_behavior_others,  # Total behavior time for other dates
-                    "avg_behavior_others": avg_behavior_others  # Average behavior time for other dates
-                })
         else:
             return jsonify({"error": f"Cow ID '{cow_id}' not found"}), 404
     else:
         return jsonify({'error': 'No data found for the given date range'}), 404
-
-
-
-
 
 
 # Route for streaming numbers
@@ -1814,116 +1753,9 @@ def feeding_efficiency():
 
 
 
-# Define the base URL for your app (adjust as per your app's setup)
-
-RESULTS = {}  # Global dictionary to store video processing results
-
-def process_video(video_path, csv_file_path, fps):
-    """
-    Function to process the video and progressively write results to a CSV file in the background.
-    """
-    global RESULTS
-    RESULTS = {}  # Reset the RESULTS dictionary
-    cap = cv2.VideoCapture(video_path)
-
-    # Create the CSV file with headers based on class_map
-    with open(csv_file_path, mode='w', newline='') as csv_file:
-        fieldnames = ['frameNumber'] + list(class_map.values())
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
-            if frame_number % int(fps) == 0:  # Extract one frame per second
-                temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
-                
-                #resize the frame to 640x640
-                resized_frame = cv2.resize(frame, (640, 640))
-                cv2.imwrite(temp_frame_path, resized_frame)
-
-                # Process the frame and get the results
-                results, boxed_image_path = process_image(temp_frame_path)
-                print(f"Results for frame {frame_number}: {results}")
-
-                # Create a dictionary for the CSV row with 'nan' if a class is not detected
-                row = {}
-                for class_name in class_map.values():
-                    detected = next((result for result in results if class_name in result), None)
-                    if detected:
-                        row[class_name] = list(detected.values())[0]
-                    else:
-                        row[class_name] = 'nan'
-
-                # Write the row to the CSV file
-                writer.writerow(row)
-
-                # Construct the image URL manually using the base URL
-                image_url = f"/cache/{os.path.basename(boxed_image_path)}"
-
-                # Add the frame number, results, and boxed image URL to the RESULTS dictionary
-                RESULTS[frame_number] = [row, {'frameNumber': frame_number ,"image_url": image_url}]
-    
-    cap.release()
-    print(results)
-
-
-@app.route('/zone_video', methods=['POST'])
-def zone_video():
-    """
-    Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
-    """
-    global VIDEO_PATH
-    print("Video upload request received")
-    
-    if 'video' not in request.files:
-        return {'error': "No video part in the request"}, 400
-    
-    video_file = request.files['video']
-    
-    if video_file.filename == '':
-        return {'error': "No selected file"}, 400
-    
-    video_path = os.path.join(cache_dir, video_file.filename)
-    
-    # Save the uploaded video
-    video_file.save(video_path)
-    print("Video saved successfully at:", video_path)
-    
-    if os.path.exists(video_path):
-        VIDEO_PATH = video_path  # Update the global VIDEO_PATH
-        print("Video path updated:", VIDEO_PATH)
-    
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    cap.release()
-
-    # Generate a CSV file name based on the current date
-    current_date = datetime.now().strftime('%Y_%m_%d')
-    csv_file_path = os.path.join(cache_dir, f'{current_date}.csv')
-    print("CSV file will be saved at:", csv_file_path)
-
-    # Process the video in a background thread
-    threading.Thread(target=process_video, args=(video_path, csv_file_path, fps)).start()
-
-    return {'message': "Video uploaded successfully. Processing started."}, 200
-
-
-@app.route('/video_results', methods=['GET'])
-def video_results():
-    """
-    Send the video processing results as JSON data.
-    """
-    global RESULTS
-
-    # Check if the RESULTS global variable is populated
-    if RESULTS:
-        # Return the RESULTS as JSON data
-        return jsonify(RESULTS)
-    else:
-        return {'error': 'Results not available or processing is still ongoing'}, 404
 
 if __name__ == '__main__':
     app.run(debug=True)
+    
+    
+#zone_image
