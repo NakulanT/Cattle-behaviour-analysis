@@ -1,89 +1,78 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { subMonths, format } from 'date-fns';
-import { helix } from 'ldrs'
+import { helix } from 'ldrs';
 
-helix.register()
+helix.register();
 
 const DiseaseBarChart = ({ cowId, date }) => {
-  const [monthlyConditions, setMonthlyConditions] = useState(null); // Store the monthly conditions data
+  const [monthlyConditions, setMonthlyConditions] = useState([]); // Ensure initial value is an empty array
   const [loading, setLoading] = useState(true); // Loading state
   const [error, setError] = useState(null); // Error handling
 
-  // Utility function to filter the last 12 months of data based on the given date
-  const filterLast12Months = (data, date) => {
-    const last12Months = Array.from({ length: 12 }, (_, i) => format(subMonths(new Date(date), i), 'yyyy-MM'));
-    return Object.entries(data)
-      .filter(([month]) => last12Months.includes(month))
-      .map(([month, values]) => ({
-        name: month, // Use the month as the label
-        eating_less_than_5: values.eating_less_than_5,
-        eating_more_than_6: values.eating_more_than_6,
-        lying_less_than_8: values.lying_less_than_8,
-        lying_more_than_12: values.lying_more_than_12,
-        standing_less_than_4: values.standing_less_than_4,
-        standing_more_than_8: values.standing_more_than_8
-      }));
+  const fetchCowData = async (endDate) => {
+    try {
+      const response = await axios.get(`http://127.0.0.1:5000/cow_all_data/${cowId}`, {
+        params: {
+          end_date: endDate, // Send only the end date (YYYY-MM)
+        },
+      });
+
+      const newData = response.data.monthly_conditions;
+
+      // Check if the data exists and is an array
+      if (!newData || Object.keys(newData).length === 0) {
+        throw new Error('No data available');
+      }
+
+      // Transform object to array and slice the first 12 entries
+      const transformedData = Object.entries(newData)
+        .map(([key, value]) => ({
+          name: key,
+          ...value,
+        }))
+        .slice(0, 12); // Only get the first 12 items
+
+      // Set the data into state
+      setMonthlyConditions(transformedData);
+      setLoading(false);
+    } catch (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
 
+  // Initial loading of the latest 12 months of data using the date passed from props
   useEffect(() => {
-    const fetchMonthlyConditions = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`http://127.0.0.1:5000/cow_all_data/${cowId}`);
-        const conditions = response.data.monthly_conditions;
-
-        // Filter the data to include only the last 12 months based on the given date
-        const filteredData = filterLast12Months(conditions, date);
-
-        setMonthlyConditions(filteredData);
-        setLoading(false);
-      } catch (err) {
-        setError(err.message);
-        setLoading(false);
-      }
-    };
-
-    fetchMonthlyConditions();
+    const endDate = date.toISOString().slice(0, 7); // Use the date prop and format it to YYYY-MM
+    fetchCowData(endDate); // Fetch data for the passed date and the last 12 months
   }, [cowId, date]);
 
   if (loading) {
-    return <div className='flex flex-col  justify-center items-center w-full h-full'>
-
-      <l-helix
-        size="96"
-        speed="1.5" 
-        color="#ff99cc" 
-      >
-      </l-helix>
-        <h1 className='text-[#ff99cc] m-4 text-xl'>Analysing....</h1>
-
-    </div>;
+    return (
+      <div className="flex flex-col justify-center items-center w-full h-full">
+        <l-helix size="96" speed="1.5" color="#ff99cc"></l-helix>
+        <h1 className="text-[#ff99cc] m-4 text-xl">Analysing....</h1>
+      </div>
+    );
   }
 
   if (error) {
     return <div>Error: {error}</div>;
   }
 
+  // Check if the data exists before rendering
+  if (!monthlyConditions || monthlyConditions.length === 0) {
+    return <div>No data available</div>;
+  }
+
   return (
-    <div className="bg-gray-800 p-4 h-full  rounded-lg">
+    <div className="bg-gray-800 p-4 h-full rounded-lg">
       <ResponsiveContainer>
-        <BarChart
-          data={monthlyConditions}
-          margin={{ top: 20, right: 30, bottom: 5, left: 0 }}
-        >
+        <BarChart data={monthlyConditions} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: 'white' }}
-            tickLine={{ stroke: '#444' }}
-          />
-          <YAxis
-            tick={{ fill: 'white' }}
-            tickLine={{ stroke: '#444' }}
-            axisLine={{ stroke: '#444' }}
-          />
+          <XAxis dataKey="name" tick={{ fill: 'white' }} tickLine={{ stroke: '#444' }} />
+          <YAxis tick={{ fill: 'white' }} tickLine={{ stroke: '#444' }} axisLine={{ stroke: '#444' }} />
           <Tooltip contentStyle={{ backgroundColor: '#333', color: 'white' }} />
           <Legend wrapperStyle={{ color: 'white' }} />
 

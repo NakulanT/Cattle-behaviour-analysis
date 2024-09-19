@@ -8,6 +8,8 @@ import CattleRadarChart from '../components/CattleRadarChart.jsx';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import FeedingFrequencyChart from '../components/FeedingFrequencyChart.jsx';
+import Navbar from '../components/Navbar.jsx';
 
 const CowInfoPage1 = () => {
     const { cowId } = useParams();
@@ -25,36 +27,11 @@ const CowInfoPage1 = () => {
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState({ chart: true, pie: true, radar: true, calendar: true });
 
-    useEffect(() => {
-        const fetchMonthlyConditions = async () => {
-            setLoading((prevState) => ({ ...prevState, calendar: true }));
-            try {
-                const response = await axios.get(`http://127.0.0.1:5000/cow_all_data/${cowId}`);
-                const today = new Date();
-                const oneYearAgo = new Date();
-                oneYearAgo.setDate(today.getDate() - 365);
 
-                const conditionSummary = response.data.condition_summary;
-                const filteredCalendarData = Object.keys(conditionSummary)
-                    .filter(date => {
-                        const entryDate = new Date(date);
-                        return entryDate >= oneYearAgo && entryDate <= today;
-                    })
-                    .map(date => ({
-                        date: date,
-                        value: conditionSummary[date].value
-                    }));
 
-                setCalendarData(filteredCalendarData);
-                setLoading((prevState) => ({ ...prevState, calendar: false }));
-            } catch (err) {
-                setError(err.message);
-                setLoading((prevState) => ({ ...prevState, calendar: false }));
-            }
-        };
-
-        fetchMonthlyConditions();
-    }, [cowId]);
+    // console.log(response.data.condition_summary);
+    // console.log(calendarData);
+    
 
     useEffect(() => {
         const fetchData = async () => {
@@ -105,6 +82,7 @@ const CowInfoPage1 = () => {
 
     return (
         <div className="bg-gray-900 p-4">
+            <Navbar/>
             <div className="flex items-center space-x-4 mb-6 p-8">
                 <div>
                     <label className="text-white">Select Date: </label>
@@ -136,7 +114,7 @@ const CowInfoPage1 = () => {
                 </div>
 
                 <div className="col-span-7 row-span-1 items-center bg-gray-800">
-                    <DiseaseBarChart monthlyConditionsdata={calendarData} cowId={cowId} date={selectedDate} />
+                    <DiseaseBarChart cowId={cowId} date={selectedDate} />
                 </div>
 
                 <div className="col-span-4">
@@ -148,12 +126,12 @@ const CowInfoPage1 = () => {
                 </div>
 
                 <div className="col-span-4">
-                    <Piechart data={Piedata} loading={loading.pie} />
+                < FeedingFrequencyChart/>
                 </div>
 
-                <div className="col-start-2 col-span-10">
-                    <CalendarHeatmap data={calendarData} loading={loading.calendar} />
-                </div>
+                {/* <div className="col-start-2 col-span-10">
+                    < FeedingFrequencyChart/>
+                </div> */}
             </div>
         </div>
     );

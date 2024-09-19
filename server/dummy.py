@@ -25,7 +25,7 @@ def get_behavior_data(cow_id, not_recognized_intervals, current_interval):
         # Determine eating time based on cow conditions
         if cow_id in ['Cow_1', 'Cow_3']:
             # Cow 1 and Cow 3 rarely eat less than 1-3 hours
-            if random.random() < 0.2:  # 20% chance for rare eating pattern
+            if random.random() < 0.002:  # 20% chance for rare eating pattern
                 eating_time = random.randint(1, 3)  # Eating 1-3 mins
             else:
                 eating_time = random.randint(4, 6)  # Eating 4-6 mins
@@ -33,14 +33,14 @@ def get_behavior_data(cow_id, not_recognized_intervals, current_interval):
             eating_time = random.randint(4, 6)  # Normal eating 4-6 mins
 
         # Determine lying time
-        if cow_id == 'Cow_4' and random.random() < 0.2:  # 20% chance for Cow 4 to lie down 12-16 hours
-            lying_time = random.randint(12, 16)  # Lying down 12-16 mins
+        if cow_id == 'Cow_4' and random.random() < 0.002:  # 20% chance for Cow 4 to lie down 12-16 hours
+            lying_time = random.randint(12, 15)  # Lying down 12-16 mins
         else:
             lying_time = random.randint(8, 12)  # Normal lying down 8-12 mins
 
         # Determine standing time
-        if random.random() < 0.05:  # 5% chance for any cow to stand 8-16 mins
-            standing_time = random.randint(8, 16)  # Standing 8-16 mins
+        if random.random() < 0.001:  # 5% chance for any cow to stand 8-16 mins
+            standing_time = random.randint(8, 15)  # Standing 8-16 mins
         else:
             standing_time = random.randint(4, 8)  # Normal standing 4-8 mins
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircleIcon, CameraIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'; // Import Heroicons for v2
+import { CheckCircleIcon, CameraIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 
 function Comunicating() {
   const [currentTotal, setCurrentTotal] = useState(50);
@@ -18,30 +18,39 @@ function Comunicating() {
   const difference = initialTotal - currentTotal;
 
   return (
-    <div className="w-full rounded-lg shadow-lg bg-gray-800 p-6 text-white transition-all duration-500 ease-in-out transform hover:scale-105">
-      <h2 className="text-xl font-bold mb-4">Detection Status</h2>
-      <div className="flex flex-col mb-4">
-        <div className="flex items-center mb-2">
-          <CheckCircleIcon className="h-6 w-6 text-green-400 mr-2" />
-          <span className="font-medium text-xl">Total Listed Cattle:</span>
-        </div>
-        <span className="font-bold text-4xl">{initialTotal}</span>
-      </div>
+    <div>
+      {/* Outer Box (Square) */}
+      <div className="bg-gray-800 text-white rounded-lg p-6 shadow-lg flex flex-col">
+        <h2 className="text-2xl font-bold mb-6">Detection Status</h2>
 
-      <div className="flex flex-col mb-4">
-        <div className="flex items-center mb-2">
-          <CameraIcon className="h-6 w-6 text-blue-400 mr-2" />
-          <span className="font-medium text-xl">In Frame:</span>
-        </div>
-        <span className="font-bold text-4xl">{currentTotal}</span>
-      </div>
+        <div className="grid gap-6">
+          {/* Total Listed Cattle Card */}
+          <div className="bg-gray-700 rounded-lg p-4 shadow-md flex flex-col justify-between">
+            <div className="flex items-center mb-2">
+              <CheckCircleIcon className="h-6 w-6 text-green-400 mr-2" />
+              <span className="font-medium text-lg">Total Listed Cattle:</span>
+            </div>
+            <span className="font-bold text-2xl">{initialTotal}</span>
+          </div>
 
-      <div className="flex flex-col mb-4">
-        <div className="flex items-center mb-2">
-          <ExclamationCircleIcon className="h-6 w-6 text-red-400 mr-2" />
-          <span className="font-medium text-xl">Out of Detection:</span>
+          {/* In Frame Card */}
+          <div className="bg-gray-700 rounded-lg p-4 shadow-md flex flex-col justify-between">
+            <div className="flex items-center mb-2">
+              <CameraIcon className="h-6 w-6 text-blue-400 mr-2" />
+              <span className="font-medium text-lg">In Frame:</span>
+            </div>
+            <span className="font-bold text-2xl">{currentTotal}</span>
+          </div>
+
+          {/* Out of Detection Card */}
+          <div className="bg-gray-700 rounded-lg p-4 shadow-md flex flex-col justify-between">
+            <div className="flex items-center mb-2">
+              <ExclamationCircleIcon className="h-6 w-6 text-red-400 mr-2" />
+              <span className="font-medium text-lg">Out of Detection:</span>
+            </div>
+            <span className="font-bold text-2xl">{difference}</span>
+          </div>
         </div>
-        <span className="font-bold text-4xl">{difference}</span>
       </div>
     </div>
   );

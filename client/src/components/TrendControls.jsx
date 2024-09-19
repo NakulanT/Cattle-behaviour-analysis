@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Grid, TextField, MenuItem, Alert } from '@mui/material'; // Import MUI's Alert component
+import { Grid, TextField, MenuItem } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import dayjs from 'dayjs';
 
@@ -25,42 +25,53 @@ const darkTheme = createTheme({
 
 const TrendControls = ({ trendType, setTrendType, date, setDate }) => {
   const [selectedValue, setSelectedValue] = useState(dayjs(date));
+  const [trend, setTrend] = useState(trendType);
 
-  const onSelect = (newValue) => {
+  const onSelectDate = (newValue) => {
     setSelectedValue(newValue);
     setDate(newValue.format('YYYY-MM-DD'));
   };
 
+  const onSelectTrend = (event) => {
+    const newTrend = event.target.value;
+    setTrend(newTrend);
+    setTrendType(newTrend); // Update the parent component's trendType
+  };
+
   return (
     <ThemeProvider theme={darkTheme}>
-      <div className="bg-gray-800 p-4 rounded-lg shadow-lg transition-all duration-500 ease-in-out transform hover:scale-105">
-        <TextField
-          select
-          label="Trend Type"
-          value={trendType}
-          onChange={(e) => setTrendType(e.target.value)}
-          fullWidth
-          variant="filled"
-          className="mb-4"
-          InputLabelProps={{ className: 'text-gray-300' }}
-          sx={{
-            '& .MuiFilledInput-root': {
-              backgroundColor: '#1e293b',
-            },
-          }}
-        >
-          <MenuItem value="daily">Daily</MenuItem>
-          <MenuItem value="weekly">Weekly</MenuItem>
-          <MenuItem value="monthly">Monthly</MenuItem>
-        </TextField>
-
+      <div className="p-4 rounded-lg shadow-lg flex">
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <Alert severity="info" style={{ marginBottom: '10px' }}>
-            You selected date: {selectedValue.format('YYYY-MM-DD')}
-          </Alert>
-          <div className="bg-gray-700 p-2 rounded-lg">
-            <DateCalendar value={selectedValue} onChange={onSelect} />
-          </div>
+          <Grid container spacing={2} alignItems="center">
+            {/* Date Picker */}
+            <Grid item>
+              <div className=" p-2 rounded-lg">
+                <DatePicker
+                  label="Select Date"
+                  value={selectedValue}
+                  onChange={onSelectDate}
+                  renderInput={(params) => <TextField {...params} />}
+                />
+              </div>
+            </Grid>
+
+            {/* Trend Type Dropdown */}
+            <Grid item>
+              <TextField
+                label="Trend Type"
+                select
+                value={trend}
+                onChange={onSelectTrend}
+                variant="outlined"
+                sx={{ width: '250px' }} // Set the width to 50px
+                className=""
+              >
+                <MenuItem value="daily">Daily</MenuItem>
+                <MenuItem value="weekly">Weekly</MenuItem>
+                <MenuItem value="monthly">Monthly</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
         </LocalizationProvider>
       </div>
     </ThemeProvider>
