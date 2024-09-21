@@ -108,7 +108,7 @@ const CowInfoPage1 = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 grid-rows-3 gap-6 mb-6">
+            <div className="grid grid-cols-12 grid-rows-2 gap-6 mb-6">
                 <div className="col-span-5">
                     <Linecharts data={data} loading={loading.chart} />
                 </div>
@@ -125,13 +125,10 @@ const CowInfoPage1 = () => {
                     <Piechart data={Piedata} loading={loading.pie} />
                 </div>
 
-                <div className="col-span-4">
-                < FeedingFrequencyChart/>
+                <div className="col-span-4 w-full bg-gray-800 flex justify-center items-center mx-auto p-6 ">
+                <FeedingFrequencyChart cowId={cowId} date={selectedDate} selectedPeriod={selectedPeriod}/>
                 </div>
 
-                {/* <div className="col-start-2 col-span-10">
-                    < FeedingFrequencyChart/>
-                </div> */}
             </div>
         </div>
     );
