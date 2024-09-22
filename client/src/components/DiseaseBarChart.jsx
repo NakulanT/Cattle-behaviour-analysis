@@ -77,7 +77,7 @@ const DiseaseBarChart = ({ cowId, date }) => {
           <Legend wrapperStyle={{ color: 'white' }} />
 
           {/* Stack the bars with the condition data */}
-          <Bar dataKey="eating_less_than_5" stackId="a" fill="#FFB6C1" name="Eating < 5h" />
+          <Bar dataKey="eating_less_than_5" stackId="a" fill="#FFB6C1" name="Eating < 3h" />
           <Bar dataKey="eating_more_than_6" stackId="a" fill="#ADD8E6" name="Eating > 6h" />
           <Bar dataKey="lying_less_than_8" stackId="a" fill="#FFD700" name="Lying < 8h" />
           <Bar dataKey="lying_more_than_12" stackId="a" fill="#98FB98" name="Lying > 12h" />

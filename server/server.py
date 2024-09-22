@@ -526,6 +526,38 @@ DATA_DIR = 'cattle_behavior_data/'
 
 
 
+@app.route('/get_cattle_behavior', methods=['GET'])
+def get_cattle_behavior():
+    # Get the date argument from the request
+    date = request.args.get('date','2022-09-07')
+    
+    if not date:
+        return jsonify({"error": "Date parameter is required"}), 400
+
+    # Construct the expected file path based on the provided date
+    file_name = f"{date}.csv"
+    file_path = os.path.join(DATA_DIR, file_name)
+
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        return jsonify({"error": f"No data file found for the date {date}"}), 404
+
+    # Load the data from the CSV file
+    data = pd.read_csv(file_path)
+
+    # Calculate the total time spent in each behavior for all cattle
+    total_behavior_time = data.groupby('Cow ID')[
+        ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Not Recognized (min)']
+    ].sum().reset_index()
+
+    # Rename columns for better readability
+    total_behavior_time.columns = ['Cow ID', 'Lying Time (min)', 'Standing Time (min)', 
+                                   'Eating Time (min)', 'Not Recognized Time (min)']
+
+    # Convert the result to a dictionary for JSON response
+    result = total_behavior_time.to_dict(orient='records')
+    
+    return jsonify(result), 200
 
 # Helper function to convert minutes to hours for specified columns
 def convert_minutes_to_hours(df, time_cols):

@@ -5,6 +5,8 @@ import 'react-circular-progressbar/dist/styles.css';
 import { useNavigate } from 'react-router-dom';
 import ProgressCard from './ProgressCard';
 import { hourglass } from 'ldrs'
+import { AiFillAlert } from "react-icons/ai";
+
 
 hourglass.register()
 
@@ -85,7 +87,11 @@ const CowBehaviorDetails = ({ trendType, date }) => {
 
   return (
     <div className="container mx-auto p-4 bg-gray-800 text-gray-100 rounded-lg shadow-lg ">
-      <h1 className="text-2xl font-bold mb-4 text-white">Cattle Health Alerts ({trendType})</h1>
+      <div className='text-2xl font-bold mb-4 text-white flex gap-3 items-center'>
+        <h1 className="">Cattle Health Alerts ({trendType})</h1>
+        <AiFillAlert className='text-3xl' />
+
+      </div>
 
       {error ? (
         <div className="text-red-400 mb-4">{error}</div>

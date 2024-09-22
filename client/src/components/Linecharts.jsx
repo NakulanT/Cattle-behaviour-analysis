@@ -18,10 +18,10 @@ const Linecharts = ({ data }) => {
   }
 
   return (
-    <div className="flex justify-start items-start  bg-gray-800 p-2 rounded-lg">
-      <div className="w-[100%] p-4 bg-gray-800 rounded-lg">
+    <div className="flex justify-start h-full items-start  bg-gray-800 p-2 rounded-lg">
+      <div className="w-[100%] h-full p-4 bg-gray-800 rounded-lg">
         {/* Area Chart */}
-        <div className="w-[100%] h-[400px] bg-gray-800 border border-gray-600 pr-4 pt-4">
+        <div className="w-[100%] h-full bg-gray-800 border border-gray-600 pr-4 pt-4">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               {/* Define Gradients */}

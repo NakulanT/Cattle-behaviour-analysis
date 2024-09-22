@@ -35,19 +35,25 @@ const FeedingFrequencyChart = ({ cowId, date, selectedPeriod }) => {
 
 
   return (
-    <ResponsiveContainer width="100%" height={400}>
-      {data.length > 0 ? (
-        <AreaChart data={data}>
-          <CartesianGrid strokeDasharray="4 4" />
-          <XAxis dataKey="Period" />
-          <YAxis />
-          <Tooltip />
-          <Area type="monotone" dataKey="Feeding Frequency" stroke="#8884d8" fill="#8884d8" />
-        </AreaChart>
-      ) : (
-        <div>No data available for the selected cow and period.</div>
-      )}
-    </ResponsiveContainer>
+    <div className='h-full w-full'>
+      <h1 className='p-4 text-xl text-zinc-50'>
+        Feeding Frequency Chart
+      </h1>
+
+      <ResponsiveContainer width="100%" height={400}>
+        {data.length > 0 ? (
+          <AreaChart data={data}>
+            <CartesianGrid strokeDasharray="4 4" />
+            <XAxis dataKey="Period" />
+            <YAxis />
+            <Tooltip />
+            <Area type="monotone" dataKey="Feeding Frequency" stroke="#8884d8" fill="#8884d8" />
+          </AreaChart>
+        ) : (
+          <div>No data available for the selected cow and period.</div>
+        )}
+      </ResponsiveContainer>
+    </div>
   );
   
 };

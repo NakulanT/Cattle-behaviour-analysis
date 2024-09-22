@@ -82,34 +82,15 @@ const CowInfoPage1 = () => {
 
     return (
         <div className="bg-gray-900 p-4">
-            <Navbar/>
-            <div className="flex items-center space-x-4 mb-6 p-8">
-                <div>
-                    <label className="text-white">Select Date: </label>
-                    <DatePicker 
-                        selected={selectedDate} 
-                        onChange={handleDateChange} 
-                        dateFormat="yyyy-MM-dd"
-                        className="p-2 rounded"
-                    />
-                </div>
-
-                <div>
-                    <label className="text-white">Select Period: </label>
-                    <select
-                        value={selectedPeriod}
-                        onChange={handlePeriodChange}
-                        className="p-2 rounded"
-                    >
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                    </select>
-                </div>
-            </div>
+            <Navbar
+            trendType={selectedPeriod}
+            setTrendType={setSelectedPeriod}
+            date={selectedDate}
+            setDate={setSelectedDate}/>
+          
 
             <div className="grid grid-cols-12 grid-rows-2 gap-6 mb-6">
-                <div className="col-span-5">
+                <div className="col-span-5 h-full">
                     <Linecharts data={data} loading={loading.chart} />
                 </div>
 

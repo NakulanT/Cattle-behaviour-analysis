@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircleIcon, CameraIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { FcCameraIdentification } from "react-icons/fc";
 
 function Comunicating() {
   const [currentTotal, setCurrentTotal] = useState(50);
@@ -21,7 +22,12 @@ function Comunicating() {
     <div>
       {/* Outer Box (Square) */}
       <div className="bg-gray-800 text-white rounded-lg p-6 shadow-lg flex flex-col">
-        <h2 className="text-2xl font-bold mb-6">Detection Status</h2>
+        <div className="text-2xl font-bold mb-6 flex items-center gap-3">
+          <h2 >Detection Status </h2>
+          <FcCameraIdentification className='text-3xl' />
+
+        </div>
+
 
         <div className="grid gap-6">
           {/* Total Listed Cattle Card */}
