@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import Linecharts from '../components/Linecharts.jsx';
 import CalendarHeatmap from "../components/CalanderHeatmap";
@@ -6,113 +6,118 @@ import Piechart from "../components/PieChart";
 import DiseaseBarChart from '../components/DiseaseBarChart.jsx';
 import CattleRadarChart from '../components/CattleRadarChart.jsx';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import FeedingFrequencyChart from '../components/FeedingFrequencyChart.jsx';
 import Navbar from '../components/Navbar.jsx';
 
 const CowInfoPage1 = () => {
-    const { cowId } = useParams();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { period: initialPeriod, date: initialDate } = location.state || {};
+  const { cowId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { period: initialPeriod, date: initialDate } = location.state || {};
 
-    const [selectedDate, setSelectedDate] = useState(initialDate ? new Date(initialDate) : new Date());
-    const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod || "daily");
+  const [selectedDate, setSelectedDate] = useState(initialDate ? new Date(initialDate) : new Date());
+  const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod || "daily");
+  const [data, setData] = useState(null);
+  const [averageData, setAverageData] = useState(null);
+  const [selectedDateDay, setSelectedDateDay] = useState(null);
+  const [calendarData, setCalendarData] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState({
+    chart: true,
+    pie: true,
+    radar: true,
+    calendar: true,
+  });
 
-    const [data, setData] = useState(null);
-    const [average_data, setAverage_data] = useState(null);
-    const [selectedDateDay, setSelectedDateDay] = useState(null);
-    const [calendarData, setCalendarData] = useState([]);
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState({ chart: true, pie: true, radar: true, calendar: true });
+  // Modularize fetching logic for better code reuse and readability
+  const fetchData = useCallback(async () => {
+    setLoading((prevState) => ({ ...prevState, chart: true, pie: true, radar: true }));
+    setError(null);
 
+    try {
+        const dateObject = new Date(selectedDate);
+        const formattedDate = `${dateObject.getFullYear()}-${String(dateObject.getMonth() + 1).padStart(2, '0')}-${String(dateObject.getDate()).padStart(2, '0')}`;
 
+        // console.log(formattedDatefe);
+        
+      
+    //   const formattedDate = selectedDate.toISOString().split('T')[0];
+      const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`, {
+        params: {
+          date: formattedDate,
+          period: selectedPeriod,
+        },
+      });
 
-    // console.log(response.data.condition_summary);
-    // console.log(calendarData);
-    
+      const { daily, weeklyData, monthlyData, average_data, selected_day } = response.data;
+      const formattedData = (selectedPeriod === 'daily' ? daily : selectedPeriod === 'weekly' ? weeklyData : monthlyData)
+        .map(item => ({
+          name: item.name,
+          standing: item.standing,
+          eating: item.eating,
+          lyingDown: item.lyingDown,
+        }));
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading((prevState) => ({ ...prevState, chart: true, pie: true, radar: true }));
-            setError(null);
-
-            try {
-                const formattedDate = selectedDate.toISOString().split('T')[0];
-                const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`, {
-                    params: {
-                        date: formattedDate,
-                        period: selectedPeriod,
-                    },
-                });
-
-                const { daily, weeklyData, monthlyData, average_data, selected_day } = response.data;
-                const formattedData = (selectedPeriod === 'daily' ? daily : (selectedPeriod === 'weekly' ? weeklyData : monthlyData))
-                    .map(item => ({
-                        name: item.name,
-                        standing: item.standing,
-                        eating: item.eating,
-                        lyingDown: item.lyingDown,
-                    }));
-
-                setData(formattedData);
-                setAverage_data(average_data);
-                setSelectedDateDay(selected_day);
-
-                setLoading((prevState) => ({ ...prevState, chart: false, pie: false, radar: false }));
-            } catch (error) {
-                setError(error.message || "Error fetching data");
-                setLoading((prevState) => ({ ...prevState, chart: false, pie: false, radar: false }));
-            }
-        };
-
-        fetchData();
-    }, [selectedDate, selectedPeriod, cowId]);
-
-    const handleDateChange = (date) => setSelectedDate(date);
-    const handlePeriodChange = (e) => setSelectedPeriod(e.target.value);
-
-    if (error) {
-        return <div>Error: {error}</div>;
+      setData(formattedData);
+      setAverageData(average_data);
+      setSelectedDateDay(selected_day);
+      setLoading((prevState) => ({ ...prevState, chart: false, pie: false, radar: false }));
+    } catch (err) {
+      setError(err.message || "Error fetching data");
+      setLoading((prevState) => ({ ...prevState, chart: false, pie: false, radar: false }));
     }
+  }, [selectedDate, selectedPeriod, cowId]);
 
-    const Piedata = average_data || {};
-    const raderdata = { avg: average_data || {}, selected_date: selectedDateDay || {} };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    return (
-        <div className="bg-gray-900 p-4">
-            <Navbar
-            trendType={selectedPeriod}
-            setTrendType={setSelectedPeriod}
-            date={selectedDate}
-            setDate={setSelectedDate}/>
-          
 
-            <div className="grid grid-cols-12 grid-rows-2 gap-6 mb-6">
-                <div className="col-span-5 h-full">
-                    <Linecharts data={data} loading={loading.chart} />
-                </div>
 
-                <div className="col-span-7 row-span-1 items-center bg-gray-800">
-                    <DiseaseBarChart cowId={cowId} date={selectedDate} />
-                </div>
 
-                <div className="col-span-4">
-                    <CattleRadarChart data={raderdata} loading={loading.radar} />
-                </div>
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
-                <div className="col-span-4">
-                    <Piechart data={Piedata} loading={loading.pie} />
-                </div>
+  const pieData = averageData || {};
+  const radarData = { avg: averageData || {}, selected_date: selectedDateDay || {} };
 
-                <div className="col-span-4 w-full bg-gray-800 flex justify-center items-center mx-auto p-6 ">
-                <FeedingFrequencyChart cowId={cowId} date={selectedDate} selectedPeriod={selectedPeriod}/>
-                </div>
+  return (
+    <div className="bg-gray-900 p-4">
+      <Navbar
+        trendType={selectedPeriod}
+        setTrendType={setSelectedPeriod}
+        date={selectedDate}
+        setDate={setSelectedDate}
+      />
 
-            </div>
+      <div className="grid grid-cols-12 grid-rows-2 gap-6 mb-6">
+        {/* Line chart component */}
+        <div className="col-span-5 h-full">
+          <Linecharts data={data} loading={loading.chart} />
         </div>
-    );
+
+        {/* Disease Bar chart */}
+        <div className="col-span-7 row-span-1 items-center bg-gray-800">
+          <DiseaseBarChart cowId={cowId} date={selectedDate} />
+        </div>
+
+        {/* Radar and Pie charts */}
+        <div className="col-span-4">
+          <CattleRadarChart data={radarData} loading={loading.radar} />
+        </div>
+
+        <div className="col-span-4">
+          <Piechart data={pieData} loading={loading.pie} />
+        </div>
+
+        {/* Feeding Frequency Chart */}
+        <div className="col-span-4 w-full bg-gray-800 flex justify-center items-center mx-auto p-6 ">
+          <FeedingFrequencyChart cowId={cowId} date={selectedDate} selectedPeriod={selectedPeriod} />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default CowInfoPage1;

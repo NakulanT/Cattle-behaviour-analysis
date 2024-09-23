@@ -44,7 +44,12 @@ const DiseaseBarChart = ({ cowId, date }) => {
 
   // Initial loading of the latest 12 months of data using the date passed from props
   useEffect(() => {
-    const endDate = date.toISOString().slice(0, 7); // Use the date prop and format it to YYYY-MM
+    const dateObject = new Date(date);
+    const formattedDate = `${dateObject.getFullYear()}-${String(dateObject.getMonth() + 1).padStart(2, '0')}`;
+    
+    // const endDate = date.toISOString().slice(0, 7); // Use the date prop and format it to YYYY-MM
+    const endDate = formattedDate; // Use the date prop and format it to YYYY-MM
+    
     fetchCowData(endDate); // Fetch data for the passed date and the last 12 months
   }, [cowId, date]);
 
