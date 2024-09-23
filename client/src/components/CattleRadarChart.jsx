@@ -2,13 +2,18 @@ import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 
 const CattleRadarChart = ({ data }) => {
+  // Check if data is available
+  if (!data || !data.avg || !data.selected_date) {
+    return <div className="text-white">No data available</div>; // Show message if no data
+  }
+
   // Calculate Movement by adding Standing and Eating values
   const radarChartData = [
-    { behavior: 'Eating', avg: data.avg.eating, selected: data.selected_date.eating },
-    { behavior: 'Standing', avg: data.avg.standing, selected: data.selected_date.standing },
-    { behavior: 'Lying Down', avg: data.avg.lyingDown, selected: data.selected_date.lyingdown },
-    { behavior: 'Not Recognized', avg: data.avg.not_reconized, selected: data.selected_date.not_reconized },
-    { behavior: 'Movement', avg: data.avg.eating + data.avg.standing, selected: data.selected_date.eating + data.selected_date.standing },
+    { behavior: 'Eating', avg: data.avg.eating || 0, selected: data.selected_date.eating || 0 },
+    { behavior: 'Standing', avg: data.avg.standing || 0, selected: data.selected_date.standing || 0 },
+    { behavior: 'Lying Down', avg: data.avg.lyingDown || 0, selected: data.selected_date.lyingdown || 0 },
+    { behavior: 'Not Recognized', avg: data.avg.not_reconized || 0, selected: data.selected_date.not_reconized || 0 },
+    { behavior: 'Movement', avg: (data.avg.eating || 0) + (data.avg.standing || 0), selected: (data.selected_date.eating || 0) + (data.selected_date.standing || 0) },
   ];
 
   return (
@@ -23,7 +28,7 @@ const CattleRadarChart = ({ data }) => {
           />
           <PolarRadiusAxis
             angle={30}
-            domain={[0, 10]}
+            domain={[0, Math.max(...radarChartData.map(item => Math.max(item.avg, item.selected))) || 10]} // Dynamic max range
             tick={{ fill: '#E2E8F0', fontSize: 12 }}
             axisLine={false}
           />

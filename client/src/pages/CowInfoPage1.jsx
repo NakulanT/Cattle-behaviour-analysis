@@ -1,211 +1,123 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import Linecharts from '../components/Linecharts.jsx';
 import CalendarHeatmap from "../components/CalanderHeatmap";
 import Piechart from "../components/PieChart";
 import DiseaseBarChart from '../components/DiseaseBarChart.jsx';
 import CattleRadarChart from '../components/CattleRadarChart.jsx';
-import { useParams, useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import FeedingFrequencyChart from '../components/FeedingFrequencyChart.jsx';
+import Navbar from '../components/Navbar.jsx';
 
 const CowInfoPage1 = () => {
+  const { cowId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { period: initialPeriod, date: initialDate } = location.state || {};
 
-    const { cowId } = useParams();  // Get cow ID from the route
-    const navigate = useNavigate();
-    const location = useLocation(); // Get location object
-    const { period: initialPeriod, date: initialDate } = location.state || {}; // Destructure period (trendType) and date
+  const [selectedDate, setSelectedDate] = useState(initialDate ? new Date(initialDate) : new Date());
+  const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod || "daily");
+  const [data, setData] = useState(null);
+  const [averageData, setAverageData] = useState(null);
+  const [selectedDateDay, setSelectedDateDay] = useState(null);
+  const [calendarData, setCalendarData] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState({
+    chart: true,
+    pie: true,
+    radar: true,
+    calendar: true,
+  });
 
-    // States for selected date and period
-    const [selectedDate, setSelectedDate] = useState(initialDate ? new Date(initialDate) : new Date());
-    const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod || "daily");
+  // Modularize fetching logic for better code reuse and readability
+  const fetchData = useCallback(async () => {
+    setLoading((prevState) => ({ ...prevState, chart: true, pie: true, radar: true }));
+    setError(null);
 
-    // Other states
-    const [data, setData] = useState(null);
-    const [Monthly_data, setMonthly_data] = useState(null);
-    const [average_data, setAverage_data] = useState(null);
-    const [selectedDateDay, setSelectedDateDay] = useState(null);
-    const [calendarData, setCalendarData] = useState([]); // State for the calendar data
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(true);
+    try {
+        const dateObject = new Date(selectedDate);
+        const formattedDate = `${dateObject.getFullYear()}-${String(dateObject.getMonth() + 1).padStart(2, '0')}-${String(dateObject.getDate()).padStart(2, '0')}`;
 
-    // Fetching Monthly Conditions
-    useEffect(() => {
-        const fetchMonthlyConditions = async () => {
-            setLoading(true);
-            try {
-                const response = await axios.get(`http://127.0.0.1:5000/cow_all_data/${cowId}`);
-                console.log("API Response:", response.data);
-            
-                // Get today's date and calculate the date 365 days ago
-                const today = new Date();
-                const oneYearAgo = new Date();
-                oneYearAgo.setDate(today.getDate() - 365);
+        // console.log(formattedDatefe);
         
-                // Transform and filter the condition_summary to include only the last 365 days
-                const conditionSummary = response.data.condition_summary;
-                const filteredCalendarData = Object.keys(conditionSummary)
-                    .filter(date => {
-                        const entryDate = new Date(date);
-                        return entryDate >= oneYearAgo && entryDate <= today;
-                    })
-                    .map(date => ({
-                        date: date, // Use the date as the key
-                        value: conditionSummary[date].value // Use the value from the condition summary
-                    }));
-                
-                setCalendarData(filteredCalendarData); // Store the filtered calendar data
-                console.log("Formatted calendarData:", filteredCalendarData);
-        
-                setLoading(false);
-            } catch (err) {
-                console.error("Error fetching data:", err.message);
-                setError(err.message);
-                setLoading(false);
-            }
-        };
-    
-        fetchMonthlyConditions();
-    }, [cowId]);
+      
+    //   const formattedDate = selectedDate.toISOString().split('T')[0];
+      const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`, {
+        params: {
+          date: formattedDate,
+          period: selectedPeriod,
+        },
+      });
 
-    // Fetching data based on selected date and period
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
+      const { daily, weeklyData, monthlyData, average_data, selected_day } = response.data;
+      const formattedData = (selectedPeriod === 'daily' ? daily : selectedPeriod === 'weekly' ? weeklyData : monthlyData)
+        .map(item => ({
+          name: item.name,
+          standing: item.standing,
+          eating: item.eating,
+          lyingDown: item.lyingDown,
+        }));
 
-            try {
-                const formattedDate = selectedDate.toISOString().split('T')[0]; // Format date as YYYY-MM-DD
-                const response = await axios.get(`http://127.0.0.1:5000/cow/${cowId}`, {
-                    params: {
-                        date: formattedDate,
-                        period: selectedPeriod,
-                    },
-                });
-
-                console.log(response.data);
-
-                if (selectedPeriod === 'daily' && response.data.daily) {
-                    const formattedDailyData = response.data.daily.map(day => ({
-                        name: day.name,
-                        standing: day.standing,
-                        eating: day.eating,
-                        lyingDown: day.lyingDown,
-                    }));
-
-                    setData([...formattedDailyData]);
-                    setAverage_data(response.data.average_data);
-                    setSelectedDateDay(response.data.selected_day);
-
-                } else if (selectedPeriod === 'weekly' && response.data.weeklyData) {
-                    const formattedWeeklyData = response.data.weeklyData.map(week => ({
-                        name: week.name,
-                        standing: week.standing,
-                        eating: week.eating,
-                        lyingDown: week.lyingDown,
-                    }));
-                    setData([...formattedWeeklyData]);
-                    setAverage_data(response.data.average_data);
-                    setSelectedDateDay(response.data.selected_day);
-
-                } else if (selectedPeriod === 'monthly' && response.data.monthlyData) {
-                    const formattedMonthlyData = response.data.monthlyData.map(month => ({
-                        name: month.name,
-                        standing: month.standing,
-                        eating: month.eating,
-                        lyingDown: month.lyingDown,
-                    }));
-                    setData([...formattedMonthlyData]);
-                    setAverage_data(response.data.average_data);
-                    setSelectedDateDay(response.data.selected_day);
-                }
-
-                setLoading(false);
-            } catch (error) {
-                setError(error.message || "Error fetching data");
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [selectedDate, selectedPeriod, cowId]);
-
-    if (loading) {
-        return <div>Loading...</div>;
+      setData(formattedData);
+      setAverageData(average_data);
+      setSelectedDateDay(selected_day);
+      setLoading((prevState) => ({ ...prevState, chart: false, pie: false, radar: false }));
+    } catch (err) {
+      setError(err.message || "Error fetching data");
+      setLoading((prevState) => ({ ...prevState, chart: false, pie: false, radar: false }));
     }
+  }, [selectedDate, selectedPeriod, cowId]);
 
-    if (error) {
-        return <div>Error: {error}</div>;
-    }
-
-    const Piedata = average_data;
-    const raderdata = {
-        avg: average_data,
-        selected_date: selectedDateDay,
-    };
-    console.log(calendarData);
-
-    return (
-        <div className="bg-gray-900 p-4">
-            {/* Date Picker and Period Dropdown */}
-            <div className="flex items-center space-x-4 mb-6 p-8">
-                <div>
-                    <label className="text-white">Select Date: </label>
-                    <DatePicker 
-                        selected={selectedDate} 
-                        onChange={(date) => setSelectedDate(date)} 
-                        dateFormat="yyyy-MM-dd"
-                        className="p-2 rounded"
-                    />
-                </div>
-
-                <div>
-                    <label className="text-white">Select Period: </label>
-                    <select
-                        value={selectedPeriod}
-                        onChange={(e) => setSelectedPeriod(e.target.value)}
-                        className="p-2 rounded"
-                    >
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* Data Charts */}
-            <div className="grid grid-cols-12 grid-rows-3 gap-6 mb-6">
-                
-                <div className="col-span-5">
-                    <Linecharts data={data} /> {/* Line charts for standing, eating, lying down */}
-                </div>
-                <div className="col-span-7 row-span-1 items-center bg-gray-800">
-                    {/* <h2 className="text-white mb-2">Monthly Disease Count</h2> */}
-                    <DiseaseBarChart className="items-center" monthlyConditionsdata={Monthly_data} cowId={cowId} date={selectedDate} />
-                </div>
-                
-                <div className="col-span-4 ">
-                    <CattleRadarChart data={raderdata} /> {/* Radar chart for comparison */}
-                </div>
-                
-                <div className="col-span-4">
-                    <Piechart data={Piedata} /> {/* Pie chart for average data */}
-                </div>
-                <div className="col-span-4">
-                    <Piechart data={Piedata} /> {/* Pie chart for average data */}
-                </div>
-                <div className="col-start-2 col-span-10">
-                    {/* <h2 className="text-white mb-2">Condition Calendar</h2> */}
-                    <CalendarHeatmap data={calendarData} /> {/* Heatmap showing condition summary */}
-                </div>
-            </div>
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
 
-            {/* Disease Bar Chart */}
 
-            {/* Calendar Heatmap */}
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  const pieData = averageData || {};
+  const radarData = { avg: averageData || {}, selected_date: selectedDateDay || {} };
+
+  return (
+    <div className="bg-gray-900 p-4">
+      <Navbar
+        trendType={selectedPeriod}
+        setTrendType={setSelectedPeriod}
+        date={selectedDate}
+        setDate={setSelectedDate}
+      />
+
+      <div className="grid grid-cols-12 grid-rows-2 gap-6 mb-6">
+        {/* Line chart component */}
+        <div className="col-span-5 h-full">
+          <Linecharts data={data} loading={loading.chart} />
         </div>
-    );
+
+        {/* Disease Bar chart */}
+        <div className="col-span-7 row-span-1 items-center bg-gray-800">
+          <DiseaseBarChart cowId={cowId} date={selectedDate} />
+        </div>
+
+        {/* Radar and Pie charts */}
+        <div className="col-span-4">
+          <CattleRadarChart data={radarData} loading={loading.radar} />
+        </div>
+
+        <div className="col-span-4">
+          <Piechart data={pieData} loading={loading.pie} />
+        </div>
+
+        {/* Feeding Frequency Chart */}
+        <div className="col-span-4 w-full bg-gray-800 flex justify-center items-center mx-auto p-6 ">
+          <FeedingFrequencyChart cowId={cowId} date={selectedDate} selectedPeriod={selectedPeriod} />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default CowInfoPage1;
