@@ -47,11 +47,11 @@ const CowBehaviorDetails = ({ trendType, date }) => {
       if (date && trendType) {
         try {
           const apiUrl = `http://localhost:5000/cow_behavior?date=${date}&period=${trendType}`;
-          const apiUrl1 = `http://localhost:5000/cow_behavior?date=${date}&period=${'one'}`;
+          // const apiUrl1 = `http://localhost:5000/cow_behavior?date=${date}&period=${'one'}`;
           
           const response = await axios.get(apiUrl);
-          const response1 = await axios.get(apiUrl1);
-          console.log(response1);
+          // const response1 = await axios.get(apiUrl1);
+          // console.log(response1);
           
 
           if (response.data.error) {
