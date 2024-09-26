@@ -81,9 +81,6 @@ def display_cropped_images(result):
 
     return detected_areas
 
-import os
-import cv2
-
 def draw_bounding_boxes(result, image_path, coordinates):
     img = cv2.imread(image_path)
 
@@ -204,34 +201,9 @@ def process_image(image_path):
     # Draw bounding boxes on the image
     boxed_image_path = draw_bounding_boxes(result, image_path, COORDINATES)
     
-    # Generate charts based on behavior counts
-    create_charts(behaviour_count)
     
     return results, boxed_image_path
 
-
-
-def create_charts(behaviour_count):
-    labels = list(behaviour_count.keys())
-    sizes = list(behaviour_count.values())
-    
-    plt.figure(figsize=(5, 5))
-    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-    plt.axis('equal')
-    plt.title("Behavior Distribution (Pie Chart)")
-    pie_chart_path = os.path.join(cache_dir, "behavior_pie_chart.png")
-    plt.savefig(pie_chart_path)
-    plt.close()
-    
-    plt.figure(figsize=(5, 5))
-    plt.bar(labels, sizes, color='skyblue')
-    plt.ylabel("Count")
-    plt.xlabel("Behaviors")
-    plt.title("Behavior Distribution (Bar Chart)")
-    bar_chart_path = os.path.join(cache_dir, "behavior_bar_chart.png")
-    plt.savefig(bar_chart_path)
-    plt.close()
-    
     
 @app.route('/process', methods=['POST'])
 def process_file():
@@ -293,142 +265,6 @@ def get_csv_data():
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({"error": "An error occurred while processing the CSV files."}), 500
-
-@app.route('/analyze_cattle', methods=['POST'])
-def analyze_cattle():
-    try:
-        request_data = request.get_json()
-        print("Request data:", request_data)
-        selected_cattle = request_data.get('cattle')
-
-        if not selected_cattle:
-            return jsonify({"error": "No cattle selected."}), 400
-
-        csv_dir = 'db'
-        csv_files = [f for f in os.listdir(csv_dir) if f.endswith('.csv')]
-        print("Original CSV files:", csv_files)
-
-        for f in csv_files:
-            extracted_date = extract_date(f)
-            print(f"Filename: {f}, Extracted Date: {extracted_date}")
-
-        csv_files = sorted(csv_files, key=extract_date)
-        print("Sorted CSV files:", csv_files)
-
-        csv_files = [f for f in csv_files if extract_date(f) is not pd.NaT]
-        print("Filtered CSV files:", csv_files)
-
-        if not csv_files:
-            return jsonify({"error": "No valid CSV files found."}), 400
-
-        data = pd.read_csv(os.path.join(csv_dir, csv_files[-1]))
-        cattle_data = data[selected_cattle]
-        previous_data = [pd.read_csv(os.path.join(csv_dir, f))[selected_cattle] for f in csv_files[:-1]]
-
-        avg_eating_previous = sum(d.value_counts().get('E', 0) for d in previous_data) / len(previous_data) / 12
-        avg_lying_previous = sum(d.value_counts().get('L', 0) for d in previous_data) / len(previous_data) / 12
-
-        eating_today = (cattle_data.value_counts().get('E', 0) * 5) / 60
-        lying_today = (cattle_data.value_counts().get('L', 0) * 5) / 60
-
-        lying_less_than_8 = []
-        eating_less_than_4 = []
-        lying_more_than_12 = []
-
-        for cattle in data.columns:
-            cattle_today_data = data[cattle]
-            lying_today_cattle = (cattle_today_data.value_counts().get('L', 0) * 5) / 60
-            eating_today_cattle = (cattle_today_data.value_counts().get('E', 0) * 5) / 60
-
-            if lying_today_cattle < 8:
-                lying_less_than_8.append(cattle)
-            if eating_today_cattle < 4:
-                eating_less_than_4.append(cattle)
-            if lying_today_cattle > 12:
-                lying_more_than_12.append(cattle)
-
-        create_comparison_charts(avg_eating_previous, avg_lying_previous, eating_today, lying_today, selected_cattle , csv_dir , csv_files)
-
-        # Verify that the files were created successfully
-        print("Comparison charts created:", os.path.join(cache_dir, 'comparison_chart_eating.png'))
-        print("Pie chart created:", os.path.join(cache_dir, 'selected_cattle_pie_chart.png'))
-
-        return jsonify({
-            "selected_cattle": selected_cattle,
-            "avg_eating_previous": avg_eating_previous,
-            "avg_lying_previous": avg_lying_previous,
-            "eating_today": eating_today,
-            "lying_today": lying_today,
-            "lying_less_than_8": lying_less_than_8,
-            "eating_less_than_4": eating_less_than_4,
-            "lying_more_than_12": lying_more_than_12,
-            "comparison_chart_eating": url_for('cached_image', filename='comparison_chart_eating.png'),
-            "comparison_chart_lying": url_for('cached_image', filename='comparison_chart_lying.png'),
-            "pie_chart": url_for('cached_image', filename='selected_cattle_pie_chart.png'),
-            "time_series": url_for('cached_image', filename='time_series_graph.png')
-        })
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"error": "An error occurred during analysis."}), 500
-
-
-
-def create_comparison_charts(avg_eating_previous, avg_lying_previous, eating_today, lying_today, selected_cattle , csv_dir , csv_files):
-    plt.figure(figsize=(5, 5))
-    plt.bar(['Previous Avg', 'Today'], [avg_eating_previous, eating_today], color='skyblue')
-    plt.ylabel('Eating Time (hours)')
-    plt.title(f'Eating Time Comparison - {selected_cattle}')
-    plt.savefig(os.path.join(cache_dir, 'comparison_chart_eating.png'))
-    plt.close()
-
-    plt.figure(figsize=(5, 5))
-    plt.bar(['Previous Avg', 'Today'], [avg_lying_previous, lying_today], color='skyblue')
-    plt.ylabel('Lying Down Time (hours)')
-    plt.title(f'Lying Down Time Comparison - {selected_cattle}')
-    plt.savefig(os.path.join(cache_dir, 'comparison_chart_lying.png'))
-    plt.close()
-
-    labels = ['Eating', 'Lying down', 'Standing']
-    sizes = [eating_today, lying_today, 24 - eating_today - lying_today]
-    
-    plt.figure(figsize=(5, 5))
-    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-    plt.axis('equal')
-    plt.title(f'Behavior Distribution - {selected_cattle}')
-    plt.savefig(os.path.join(cache_dir, 'selected_cattle_pie_chart.png'))
-    plt.close()
-    
-    # Initialize lists for storing average values and time sequence
-    # average_index = []   
-    time_sequence = []
-    eating_time_sequence = []
-    lying_time_sequence = []
-
-    # Iterate through each file to compute the average index
-
-    for i, file in enumerate(csv_files):
-        df = pd.read_csv(os.path.join(csv_dir, file))
-        eating_time = df[selected_cattle].value_counts().get('E', 0) / 12
-        lying_time = df[selected_cattle].value_counts().get('L', 0) / 12
-        # average_index.append((eating_time + (lying_time / 2)) / 2)
-        eating_time_sequence.append(eating_time)
-        lying_time_sequence.append(lying_time)
-        time_sequence.append(i + 1)
-
-    # Plot the average index
-    plot_path = os.path.join(cache_dir, 'behavior_analysis.png')
-    plt.figure(figsize=(10, 6))
-    # plt.plot(time_sequence, average_index, label='Average Index based on Eating and Lying Down time(Eating + Lying Down / 2)', marker='o')
-    plt.plot(time_sequence, eating_time_sequence, label='Eating Time', marker='o')
-    plt.plot(time_sequence, lying_time_sequence, label='Lying Down Time', marker='s')
-    plt.xlabel('Days')
-    plt.ylabel('hours')
-    plt.title('Average Index of Eating and Lying Down Time Over Days')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(os.path.join(cache_dir, 'time_series_graph.png'))
-    plt.close()
 
 def extract_date(filename):
     parts = filename.split('_')
@@ -614,10 +450,65 @@ def zone_image():
     # Return the URL of the saved image
     return jsonify({"image_url": url_for('cached_image', filename=image_filename)})
 
+
+# RESULTS = {}  # Global dictionary to store video processing results
+
+# def process_video(video_path, csv_file_path, fps):
+#     """
+#     Function to process the video and progressively write results to a CSV file in the background.
+#     """
+#     global RESULTS
+#     RESULTS = {}  # Reset the RESULTS dictionary
+#     cap = cv2.VideoCapture(video_path)
+
+#     # Create the CSV file with headers based on class_map
+#     with open(csv_file_path, mode='w', newline='') as csv_file:
+#         fieldnames = ['frameNumber'] + list(class_map.values())
+#         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+#         writer.writeheader()
+
+#         while True:
+#             ret, frame = cap.read()
+#             if not ret:
+#                 break
+#             frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+#             if frame_number % int(fps) == 0:  # Extract one frame per second
+#                 temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
+                
+#                 #resize the frame to 640x640
+#                 resized_frame = cv2.resize(frame, (640, 640))
+#                 cv2.imwrite(temp_frame_path, resized_frame)
+
+#                 # Process the frame and get the results
+#                 results, boxed_image_path = process_image(temp_frame_path)
+#                 # print(f"Results for frame {frame_number}: {results}")
+
+#                 # Create a dictionary for the CSV row with 'nan' if a class is not detected
+#                 row = {}
+#                 for class_name in class_map.values():
+#                     detected = next((result for result in results if class_name in result), None)
+#                     if detected:
+#                         row[class_name] = list(detected.values())[0]
+#                     else:
+#                         row[class_name] = 'nan'
+
+#                 # Write the row to the CSV file
+#                 writer.writerow(row)
+
+#                 # Construct the image URL manually using the base URL
+#                 image_url = f"/cache/{os.path.basename(boxed_image_path)}"
+
+#                 # Add the frame number, results, and boxed image URL to the RESULTS dictionary
+#                 RESULTS[frame_number] = [row, {'frameNumber': frame_number ,"image_url": image_url}]
+    
+#     cap.release()
+#     print(results)
+
+
 # @app.route('/zone_video', methods=['POST'])
 # def zone_video():
 #     """
-#     Handle the video upload, save it, and update the VIDEO_PATH.
+#     Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
 #     """
 #     global VIDEO_PATH
 #     print("Video upload request received")
@@ -636,12 +527,23 @@ def zone_image():
 #     video_file.save(video_path)
 #     print("Video saved successfully at:", video_path)
     
-#     # Update the global VIDEO_PATH
 #     if os.path.exists(video_path):
-#         VIDEO_PATH = video_path
+#         VIDEO_PATH = video_path  # Update the global VIDEO_PATH
 #         print("Video path updated:", VIDEO_PATH)
     
-#     return {'message': "Video uploaded successfully. Waiting for coordinates."}, 200
+#     cap = cv2.VideoCapture(video_path)
+#     fps = cap.get(cv2.CAP_PROP_FPS)
+#     cap.release()
+
+#     # Generate a CSV file name based on the current date
+#     current_date = datetime.now().strftime('%Y_%m_%d')
+#     csv_file_path = os.path.join(cache_dir, f'{current_date}.csv')
+#     print("CSV file will be saved at:", csv_file_path)
+
+#     # Process the video in a background thread
+#     threading.Thread(target=process_video, args=(video_path, csv_file_path, fps)).start()
+
+#     return {'message': "Video uploaded successfully. Processing started."}, 200
 
 
 # @app.route('/video_results', methods=['GET'])
@@ -656,7 +558,51 @@ def zone_image():
 #         # Return the RESULTS as JSON data
 #         return jsonify(RESULTS)
 #     else:
-#         return jsonify({'status': 'processing', 'message': 'Video processing is still ongoing, no results yet.'}), 200
+#         return {'error': 'Results not available or processing is still ongoing'}, 404
+
+@app.route('/zone_video', methods=['POST'])
+def zone_video():
+    """
+    Handle the video upload, save it, and update the VIDEO_PATH.
+    """
+    global VIDEO_PATH
+    print("Video upload request received")
+    
+    if 'video' not in request.files:
+        return {'error': "No video part in the request"}, 400
+    
+    video_file = request.files['video']
+    
+    if video_file.filename == '':
+        return {'error': "No selected file"}, 400
+    
+    video_path = os.path.join(cache_dir, video_file.filename)
+    
+    # Save the uploaded video
+    video_file.save(video_path)
+    print("Video saved successfully at:", video_path)
+    
+    # Update the global VIDEO_PATH
+    if os.path.exists(video_path):
+        VIDEO_PATH = video_path
+        print("Video path updated:", VIDEO_PATH)
+    
+    return {'message': "Video uploaded successfully. Waiting for coordinates."}, 200
+
+
+@app.route('/video_results', methods=['GET'])
+def video_results():
+    """
+    Send the video processing results as JSON data.
+    """
+    global RESULTS
+
+    # Check if the RESULTS global variable is populated
+    if RESULTS:
+        # Return the RESULTS as JSON data
+        return jsonify(RESULTS)
+    else:
+        return jsonify({'status': 'processing', 'message': 'Video processing is still ongoing, no results yet.'}), 200
 
 
 
@@ -1342,116 +1288,6 @@ def stream():
     return Response(generate(), mimetype='text/event-stream')
 
 
-# Define the base URL for your app (adjust as per your app's setup)
-
-RESULTS = {}  # Global dictionary to store video processing results
-
-def process_video(video_path, csv_file_path, fps):
-    """
-    Function to process the video and progressively write results to a CSV file in the background.
-    """
-    global RESULTS
-    RESULTS = {}  # Reset the RESULTS dictionary
-    cap = cv2.VideoCapture(video_path)
-
-    # Create the CSV file with headers based on class_map
-    with open(csv_file_path, mode='w', newline='') as csv_file:
-        fieldnames = ['frameNumber'] + list(class_map.values())
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
-            if frame_number % int(fps) == 0:  # Extract one frame per second
-                temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
-                
-                #resize the frame to 640x640
-                resized_frame = cv2.resize(frame, (640, 640))
-                cv2.imwrite(temp_frame_path, resized_frame)
-
-                # Process the frame and get the results
-                results, boxed_image_path = process_image(temp_frame_path)
-                # print(f"Results for frame {frame_number}: {results}")
-
-                # Create a dictionary for the CSV row with 'nan' if a class is not detected
-                row = {}
-                for class_name in class_map.values():
-                    detected = next((result for result in results if class_name in result), None)
-                    if detected:
-                        row[class_name] = list(detected.values())[0]
-                    else:
-                        row[class_name] = 'nan'
-
-                # Write the row to the CSV file
-                writer.writerow(row)
-
-                # Construct the image URL manually using the base URL
-                image_url = f"/cache/{os.path.basename(boxed_image_path)}"
-
-                # Add the frame number, results, and boxed image URL to the RESULTS dictionary
-                RESULTS[frame_number] = [row, {'frameNumber': frame_number ,"image_url": image_url}]
-    
-    cap.release()
-    print(results)
-
-
-@app.route('/zone_video', methods=['POST'])
-def zone_video():
-    """
-    Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
-    """
-    global VIDEO_PATH
-    print("Video upload request received")
-    
-    if 'video' not in request.files:
-        return {'error': "No video part in the request"}, 400
-    
-    video_file = request.files['video']
-    
-    if video_file.filename == '':
-        return {'error': "No selected file"}, 400
-    
-    video_path = os.path.join(cache_dir, video_file.filename)
-    
-    # Save the uploaded video
-    video_file.save(video_path)
-    print("Video saved successfully at:", video_path)
-    
-    if os.path.exists(video_path):
-        VIDEO_PATH = video_path  # Update the global VIDEO_PATH
-        print("Video path updated:", VIDEO_PATH)
-    
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    cap.release()
-
-    # Generate a CSV file name based on the current date
-    current_date = datetime.now().strftime('%Y_%m_%d')
-    csv_file_path = os.path.join(cache_dir, f'{current_date}.csv')
-    print("CSV file will be saved at:", csv_file_path)
-
-    # Process the video in a background thread
-    threading.Thread(target=process_video, args=(video_path, csv_file_path, fps)).start()
-
-    return {'message': "Video uploaded successfully. Processing started."}, 200
-
-
-@app.route('/video_results', methods=['GET'])
-def video_results():
-    """
-    Send the video processing results as JSON data.
-    """
-    global RESULTS
-
-    # Check if the RESULTS global variable is populated
-    if RESULTS:
-        # Return the RESULTS as JSON data
-        return jsonify(RESULTS)
-    else:
-        return {'error': 'Results not available or processing is still ongoing'}, 404
 
 if __name__ == '__main__':
     app.run(debug=True)
