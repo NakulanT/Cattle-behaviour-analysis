@@ -35,17 +35,17 @@ const VideoUpload = ({ setVideoUploadStatus }) => {
   };
 
   return (
-    <div className="bg-[#1e293b] rounded-lg shadow-lg p-6 max-w-4xl mx-auto flex flex-col items-center justify-center h-full">
+    <div className="bg-[#1e293b] rounded-lg shadow-lg p-[100px] max-w-4xl  mx-auto flex flex-col items-center justify-center h-[85%]">
       <h1 className="text-2xl font-bold mb-4 text-[#e2e8f0]">Upload Video</h1>
       <input
         type="file"
         accept="video/*"
         onChange={handleFileChange}
-        className="block w-full text-sm text-[#e2e8f0] border border-gray-600 rounded-lg cursor-pointer bg-[#0f172a] focus:outline-none mb-4"
+        className="block w-[70%] text-sm text-[#e2e8f0] border border-gray-600 rounded-lg cursor-pointer bg-[#0f172a] focus:outline-none mb-4"
       />
       <button
         onClick={handleUpload}
-        className="w-full py-2 text-lg font-semibold rounded-lg bg-[#38bdf8] text-[#0f172a] hover:bg-blue-400 transition duration-300 ease-in-out"
+        className="w-[70%] py-2 text-lg font-semibold rounded-lg bg-[#38bdf8] text-[#0f172a] hover:bg-blue-400 transition duration-300 ease-in-out"
       >
         Upload Video
       </button>
