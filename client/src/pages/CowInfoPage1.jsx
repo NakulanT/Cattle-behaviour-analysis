@@ -38,7 +38,7 @@ const CowInfoPage1 = () => {
         const dateObject = new Date(selectedDate);
         const formattedDate = `${dateObject.getFullYear()}-${String(dateObject.getMonth() + 1).padStart(2, '0')}-${String(dateObject.getDate()).padStart(2, '0')}`;
 
-        // console.log(formattedDatefe);
+        // console.log(formattedDate);
         
       
     //   const formattedDate = selectedDate.toISOString().split('T')[0];
