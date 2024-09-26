@@ -4,6 +4,7 @@ import CowBehaviorDetails from '../components/CowBehaviorDetails/CowBehaviorDeta
 import Comunicating from '../components/Comunicating';
 import SmallerRadiusPiechart from '../components/SmallerRadiusPiechart';
 import CowDataGrid from '../components/CowDataGrid';
+import CustomPieChart from '../components/CowBehaviorDetails/CustomPieChart';
 
 const Dashboard1 = () => {
   const [trendType, setTrendType] = useState('daily');
@@ -31,6 +32,9 @@ const Dashboard1 = () => {
           {/* CowBehaviorDetails */}
           <div className="col-span-1 lg:col-span-4 bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col h-full">
             <CowBehaviorDetails trendType={trendType} date={date} />
+          </div>
+          <div className='col-span-1 lg:col-span-2 bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col h-full'>
+            <CustomPieChart/>
           </div>
 
           {/* Comunicating Component */}
