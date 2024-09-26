@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { dotSpinner } from 'ldrs'
+import Navbar from '../components/Navbar';
 
 dotSpinner.register()
 
@@ -12,6 +13,8 @@ const VideoResults = () => {
   const [error, setError] = useState('');
   const [isFinished, setIsFinished] = useState(false);
   const [isProcessing, setIsProcessing] = useState(true);
+  const [trendType, setTrendType] = useState('daily');
+  const [date, setDate] = useState('2022-09-15');
 
   // Function to reset completed frames
   const resetCompletedFrames = () => {
@@ -75,7 +78,7 @@ const VideoResults = () => {
         setCompletedFrames(prev => new Set([...prev, results[nextIndex]?.frameNumber]));
         return nextIndex;
       });
-    }, 1000);
+    }, 100000);
 
     return () => clearInterval(displayInterval);
   }, [results, completedFrames, isFinished]);
@@ -129,6 +132,12 @@ const VideoResults = () => {
 
   return (
     <div className="bg-gray-900 min-h-screen p-4 ">
+        <Navbar 
+          trendType={trendType}
+          setTrendType={setTrendType}
+          date={date}
+          setDate={setDate}
+        />
       <h1 className="text-2xl font-bold mb-4 text-[#e2e8f0] justify-center text-center">Video Analysis Results</h1>
       
       {/* Button to reset completed frames */}

@@ -11,14 +11,9 @@ export default function Navbar({ trendType, setTrendType, date, setDate }) {
         <div className=" mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-around h-16">
             <div className="flex items-center">
-              <span className="ml-2 text-2xl font-bold text-white">Cattle Monitor</span>
-              <span className="mr-2 text-xl">🐄</span> {/* Cow emoji */}
+              <Link to="/" className="ml-2 text-2xl font-bold text-white">Cattle behaviour</Link>
             </div>
             <div className="flex items-center">
-              <Link to="/" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                <BarChartIcon className="h-5 w-5 inline-block mr-1 text-blue-400" />
-                Dashboard
-              </Link>
               <Link to="/cattles" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                 <BarChartIcon className="h-5 w-5 inline-block mr-1 text-blue-400" />
                 Cattles
@@ -27,6 +22,10 @@ export default function Navbar({ trendType, setTrendType, date, setDate }) {
                 <SettingsIcon className="h-5 w-5 inline-block mr-1 text-green-400" />
                 Settings
               </span> */}
+              <Link to="/upload" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                <BarChartIcon className="h-5 w-5 inline-block mr-1 text-blue-400" />
+                upload
+              </Link>
               <Link to="/help" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                 <HelpCircleIcon className="h-5 w-5 inline-block mr-1 text-red-400" />
                 Help

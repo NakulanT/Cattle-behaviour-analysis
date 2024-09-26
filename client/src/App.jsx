@@ -25,7 +25,7 @@ function App() {
           <Route exact path="/cow-details" element={<CowDetailPage/>} />
           <Route path="/cow/:cowId" element={<CowInfoPage1 />} />  {/* New route */}
 
-          <Route exact path="/video" element = { <Video />} /> 
+          <Route exact path="/upload" element = { <Video />} /> 
           <Route exact path="/video-results" element = { <VideoResults />} />
           <Route exact path="/sample" element = {<Sample />} />
           {/* <Route path="/cow-details" component={CowDetailPage} /> */}
