@@ -101,38 +101,38 @@ const CowBehaviorDetails = ({ trendType, date }) => {
             id={1}
             date={date}
             trendType={trendType}
-            title={`Lying Less Than ${lyingThreshold.min} Hours`}
+            title='Lameness'
             data={cowBehaviorData?.lying_less_than_8}
           />
           <ProgressCard
             id={2}
             date={date}
             trendType={trendType}
-            title={`Lying More Than ${lyingThreshold.max} Hours`}
+            title='Postpartum Fatigue or Metabolic Disorders'
             data={cowBehaviorData?.lying_more_than_12}
           />
           <ProgressCard
             date={date}
             trendType={trendType}
-            title={`Eating Less Than ${eatingThreshold.min} Hours`}
+            title='Anorexia or Social Dominance Issues'
             data={cowBehaviorData?.eating_less_than_3}
           />
           <ProgressCard
             date={date}
             trendType={trendType}
-            title={`Eating More Than ${eatingThreshold.max} Hours`}
+            title='Nutritional Deficiency or Anxiety'
             data={cowBehaviorData?.eating_more_than_6}
           />
           <ProgressCard
             date={date}
             trendType={trendType}
-            title={`Standing Less Than ${standingThreshold.min} Hours`}
+            title='Weakness or Fatigue'
             data={cowBehaviorData?.standing_less_than_4}
           />
           <ProgressCard
             date={date}
             trendType={trendType}
-            title={`Standing More Than ${standingThreshold.max} Hours`}
+            title='Heat Stress'
             data={cowBehaviorData?.standing_more_than_8}
           />
         </div>
