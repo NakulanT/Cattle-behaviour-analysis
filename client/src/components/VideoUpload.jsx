@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const VideoUpload = ({ zoneSaved }) => {
+const VideoUpload = ({ setVideoUploadStatus }) => {
   const [videoFile, setVideoFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState('');
-  const [imageUrl, setImageUrl] = useState('/static/sampleImage.png');
 
   const handleFileChange = (event) => {
     setVideoFile(event.target.files[0]);
@@ -26,11 +25,10 @@ const VideoUpload = ({ zoneSaved }) => {
         },
       });
 
-      // Only reset the state if there's an error
+      setVideoUploadStatus(true); // Notify that the video has been uploaded successfully
       setUploadStatus('Video uploaded successfully.');
-      // Optionally clear the video file if desired
+      // Optionally clear the video file after successful upload
       // setVideoFile(null);
-      // setImageUrl('/static/sampleImage.png');
     } catch (error) {
       setUploadStatus('Error uploading video.');
     }
@@ -47,18 +45,10 @@ const VideoUpload = ({ zoneSaved }) => {
       />
       <button
         onClick={handleUpload}
-        disabled={!zoneSaved}
-        className={`w-full py-2 text-lg font-semibold rounded-lg transition duration-300 ease-in-out ${
-          zoneSaved
-            ? 'bg-[#38bdf8] text-[#0f172a] hover:bg-blue-400'
-            : 'bg-gray-500 text-gray-400 cursor-not-allowed'
-        }`}
+        className="w-full py-2 text-lg font-semibold rounded-lg bg-[#38bdf8] text-[#0f172a] hover:bg-blue-400 transition duration-300 ease-in-out"
       >
         Upload Video
       </button>
-      {!zoneSaved && (
-        <p className="text-[#38bdf8] text-sm mt-2">Please save the zone before uploading a video.</p>
-      )}
       <p className="text-[#38bdf8] text-sm mt-2">{uploadStatus}</p>
     </div>
   );

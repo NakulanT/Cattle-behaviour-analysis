@@ -1,0 +1,28 @@
+{
+    "weeklyData": [
+        {
+            "eating": 7,
+            "lyingDown": 11,
+            "name": "1",
+            "standing": 6
+        },
+        {
+            "eating": 6,
+            "lyingDown": 13,
+            "name": "2",
+            "standing": 6
+        },
+        {
+            "eating": 6,
+            "lyingDown": 12,
+            "name": "3",
+            "standing": 6
+        },
+        {
+            "eating": 6,
+            "lyingDown": 12,
+            "name": "4",
+            "standing": 6
+        }
+    ]
+}

@@ -131,7 +131,7 @@ const DrawZone = ({ setZoneSaved }) => {
   };
 
   return (
-<div className="bg-[#1e293b] rounded-lg shadow-lg p-6 max-w-4xl w-full h-full flex flex-col items-center justify-center">
+<div className="bg-[#1e293b] rounded-lg shadow-lg p-6 w-full h-full flex flex-col items-center justify-center">
   <h1 className="text-2xl font-bold mb-4 text-[#e2e8f0] text-center">Draw Zone on Image</h1>
   {error ? (
     <p className="text-[#38bdf8] text-sm text-center">{error}</p>
@@ -145,7 +145,7 @@ const DrawZone = ({ setZoneSaved }) => {
       style={{ width: '640px', height: '640px' }}
     />
   )}
-  <div className="mt-4 flex w-full justify-center gap-4">
+  <div className="mt-4 flex w-[50%] justify-center gap-4">
     <button
       onClick={handleSave}
       className="w-full py-2 text-lg font-semibold rounded-lg bg-[#38bdf8] text-[#0f172a] hover:bg-blue-400 transition duration-300 ease-in-out"

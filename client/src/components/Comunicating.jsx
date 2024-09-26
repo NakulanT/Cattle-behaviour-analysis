@@ -1,58 +1,64 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircleIcon, CameraIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'; // Import Heroicons for v2
+import { CheckCircleIcon, CameraIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { FcCameraIdentification } from "react-icons/fc";
 
 function Comunicating() {
-  const [currentTotal, setCurrentTotal] = useState(50);  // Default total is 50
-  const [initialTotal] = useState(50);  // Initial fixed total
+  const [currentTotal, setCurrentTotal] = useState(50);
+  const [initialTotal] = useState(50);
 
-  // Fetch the current total from the server (Flask) every 10 seconds
   useEffect(() => {
     const eventSource = new EventSource('http://127.0.0.1:5000/stream');
-
-    // Listen for incoming data from Flask
     eventSource.onmessage = function (event) {
-      setCurrentTotal(parseInt(event.data));  // Set current total as received from Flask
+      setCurrentTotal(parseInt(event.data));
     };
-
     return () => {
-      eventSource.close();  // Cleanup on unmount
+      eventSource.close();
     };
   }, []);
 
-  // Calculate the difference between the initial and current total
   const difference = initialTotal - currentTotal;
 
   return (
-      <div className="w-[50%] rounded-lg shadow-lg bg-gray-800 p-6 text-white">
-        <h2 className="text-xl font-bold mb-4">Detection Status</h2>
+    <div>
+      {/* Outer Box (Square) */}
+      <div className="bg-gray-800 text-white rounded-lg p-6 shadow-lg flex flex-col">
+        <div className="text-2xl font-bold mb-6 flex items-center gap-3">
+          <h2 >Detection Status </h2>
+          <FcCameraIdentification className='text-3xl' />
 
-        {/* Total Listed Cattle */}
-        <div className="flex flex-col   mb-4">
-          <div className="flex items-center mb-2">
-            <CheckCircleIcon className="h-6 w-6 text-green-400 mr-2 " />  {/* Icon for Listed Cattle */}
-            <span className="font-medium text-xl  ">Total Listed Cattle:</span>
-          </div>
-          <span className="font-bold text-4xl">{initialTotal}</span>
         </div>
 
-        {/* In Frame */}
-        <div className="flex flex-col   mb-4">
-          <div className="flex items-center mb-2">
-            <CameraIcon className="h-6 w-6 text-blue-400 mr-2" />  {/* Icon for In Frame */}
-            <span className="font-medium text-xl">In Frame:</span>
-          </div>
-          <span className="font-bold text-4xl">{currentTotal}</span>
-        </div>
 
-        {/* Out of Detection */}
-        <div className="flex flex-col  mb-4">
-          <div className="flex items-center mb-2">
-            <ExclamationCircleIcon className="h-6 w-6 text-red-400 mr-2" />  {/* Icon for Out of Detection */}
-            <span className="font-medium text-xl">Out of Detection:</span>
+        <div className="grid gap-6">
+          {/* Total Listed Cattle Card */}
+          <div className="bg-gray-700 rounded-lg p-4 shadow-md flex flex-col justify-between">
+            <div className="flex items-center mb-2">
+              <CheckCircleIcon className="h-6 w-6 text-green-400 mr-2" />
+              <span className="font-medium text-lg">Total Listed Cattle:</span>
+            </div>
+            <span className="font-bold text-2xl">{initialTotal}</span>
           </div>
-          <span className="font-bold text-4xl">{difference}</span>
+
+          {/* In Frame Card */}
+          <div className="bg-gray-700 rounded-lg p-4 shadow-md flex flex-col justify-between">
+            <div className="flex items-center mb-2">
+              <CameraIcon className="h-6 w-6 text-blue-400 mr-2" />
+              <span className="font-medium text-lg">In Frame:</span>
+            </div>
+            <span className="font-bold text-2xl">{currentTotal}</span>
+          </div>
+
+          {/* Out of Detection Card */}
+          <div className="bg-gray-700 rounded-lg p-4 shadow-md flex flex-col justify-between">
+            <div className="flex items-center mb-2">
+              <ExclamationCircleIcon className="h-6 w-6 text-red-400 mr-2" />
+              <span className="font-medium text-lg">Out of Detection:</span>
+            </div>
+            <span className="font-bold text-2xl">{difference}</span>
+          </div>
         </div>
       </div>
+    </div>
   );
 }
 
