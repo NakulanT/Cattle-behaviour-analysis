@@ -50,11 +50,11 @@ const Dashboard1 = () => {
   </div>
   
   {/* Centering MultipleYAxesScatterChart */}
-  <div className="col-span-3 bg-gray-800 p-4 rounded-lg shadow-lg flex justify-center items-center h-full">
+  <div className="col-span-4 bg-gray-800 p-4 rounded-lg shadow-lg flex justify-center items-center h-full">
     <MultipleYAxesScatterChart />
   </div>
 
-  <div className="col-span-3 bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col h-full">
+  <div className="col-span-2 bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col h-full">
     <Comunicating />
   </div>
 </div>
