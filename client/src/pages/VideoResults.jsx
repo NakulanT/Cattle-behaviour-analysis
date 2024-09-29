@@ -31,8 +31,10 @@ const VideoResults = () => {
         if (response.data.status === 'processing') {
           setIsProcessing(true);
         } else {
+          console.log('Results:', response.data);
           setIsProcessing(false);
           const newResultsArray = Object.entries(response.data).map(([key, value]) => ({
+            count : value[1]?.count,
             frameNumber: value[1]?.frameNumber,
             imageUrl: value[1]?.image_url,
             details: value[0],
@@ -78,7 +80,7 @@ const VideoResults = () => {
         setCompletedFrames(prev => new Set([...prev, results[nextIndex]?.frameNumber]));
         return nextIndex;
       });
-    }, 100000);
+    }, 1000);
 
     return () => clearInterval(displayInterval);
   }, [results, completedFrames, isFinished]);
@@ -128,7 +130,7 @@ const VideoResults = () => {
     );
   }
 
-  const { frameNumber, imageUrl, details } = results[currentIndex] || {};
+  const {count , frameNumber, imageUrl, details } = results[currentIndex] || {};
 
   // Prepare the columns for the DataGrid
   const columns = [
@@ -184,7 +186,7 @@ const VideoResults = () => {
 <div className="w-1/2 pl-4 flex justify-center items-start"> {/* Use items-start for better alignment */}
   {details && (
     <div className="flex flex-col items-center" style={{ height: '80%', width: 'fit-content' }}>
-      <h1 className='text-white p-1 m-1 text-lg'>Serial number: {currentIndex}</h1>
+      <h1 className='text-white p-1 m-1 text-lg'>Serial number: {count}</h1>
       <h1 className='text-white p-1 m-1 text-lg'>Frame Number: {frameNumber}</h1>
       
       {/* Wrap DataGrid in a div with flex-grow to take the remaining space */}

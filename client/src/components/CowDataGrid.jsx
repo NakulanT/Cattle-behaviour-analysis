@@ -66,7 +66,7 @@ const CowDataGrid = ({ date }) => {
     return (
         <div className="container  bg-gray-800 text-gray-100 rounded-lg shadow-lg">
             <div className="text-2xl mx-auto font-bold mb-6 flex items-center gap-3">
-                <h1>fetchCowBehaviorData</h1>
+                <h1></h1>
             </div>
             <ThemeProvider theme={darkTheme}>
                 <Box sx={{ height: 400, width: '100%' }}>

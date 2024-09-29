@@ -55,7 +55,7 @@ export default function Navbar({ trendType, setTrendType, date, setDate }) {
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-around h-16">
             <div className="flex items-center">
-              <Link to="/" className="ml-2 text-2xl font-bold text-white">Cattle Behaviour</Link>
+              <Link to="/" className="ml-1 text-3xl font-bold text-white ">CATTLE ANALYSIS DASHBOARD</Link>
             </div>
             <div className="flex items-center">
               {/* Trend controls for selecting trends and date */}
