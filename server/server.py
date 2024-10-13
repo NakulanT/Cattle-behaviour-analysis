@@ -614,7 +614,7 @@ DATA_DIR = 'cattle_behavior_data/'
 @app.route('/get_cattle_behavior', methods=['GET'])
 def get_cattle_behavior():
     # Get the date argument from the request
-    date = request.args.get('date','2022-09-07')
+    date = request.args.get('date', '2022-09-07')
     
     if not date:
         return jsonify({"error": "Date parameter is required"}), 400
@@ -635,14 +635,21 @@ def get_cattle_behavior():
         ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Not Recognized (min)']
     ].sum().reset_index()
 
+    # Find the most frequent Camera Field for each cow
+    camera_field = data.groupby('Cow ID')['Camera Field'].agg(lambda x: x.mode()[0]).reset_index()
+
+    # Merge the total behavior time and camera field data
+    total_behavior_time = total_behavior_time.merge(camera_field, on='Cow ID')
+
     # Rename columns for better readability
     total_behavior_time.columns = ['Cow ID', 'Lying Time (min)', 'Standing Time (min)', 
-                                   'Eating Time (min)', 'Not Recognized Time (min)']
+                                   'Eating Time (min)', 'Not Recognized Time (min)', 'Camera Field']
 
     # Convert the result to a dictionary for JSON response
     result = total_behavior_time.to_dict(orient='records')
-    
+
     return jsonify(result), 200
+
 
 # Helper function to convert minutes to hours for specified columns
 def convert_minutes_to_hours(df, time_cols):
