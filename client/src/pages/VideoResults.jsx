@@ -130,21 +130,25 @@ const VideoResults = () => {
     );
   }
 
-  const {count , frameNumber, imageUrl, details } = results[currentIndex] || {};
+  const {count , frameNumber, imageUrl, details ,location } = results[currentIndex] || {};
 
   // Prepare the columns for the DataGrid
   const columns = [
     { field: 'id', headerName: 'ID', width: 100 },
     { field: 'key', headerName: 'Cattle Label', width: 300 },
-    { field: 'value', headerName: 'Action', width: 300 },
+    { field: 'value', headerName: 'Action', width: 300 }, // Correctly maps the action
+    { field: 'location', headerName: 'Location', width: 300 }, // Correctly maps the location
   ];
-
+  
   // Convert details object to rows
-  const rows = Object.entries(details).map(([key, value], index) => ({
-    id: index + 1, // Assign unique IDs for each row
-    key,
-    value,
-  }));
+// Convert details object to rows
+const rows = Object.entries(details).map(([key, value], index) => ({
+  id: index + 1, // Assign unique IDs for each row
+  key, // The key is the cattle label (e.g., "Cow 1")
+  value: value[0], // The action (e.g., "standing")
+  location: value[1], // The location (e.g., "camera 1") frame
+}));
+
 
   return (
     <div className="bg-gray-900 min-h-screen p-4">

@@ -285,8 +285,9 @@ VIDEO_PATH = ''
 COORDINATES = {}
 RESULTS = {}  # Global dictionary to store video processing results
 processing_thread = None  # Thread variable to handle video processing
-stop_event = threading.Event()  # Event to signal when to stop the current thread
+stop_event = threading.Event()  # Event to signal when to stop the current thread frame
 csv_file_path = ''  # Global variable to store the current CSV file path
+CAMERA = 'camera 1'
 
 @app.route('/coordinates', methods=['POST'])
 def handle_coordinates():
@@ -337,7 +338,7 @@ def process_video(video_path, csv_file_path, fps, stop_event):
     Function to process the video and progressively write results to a CSV file in the background.
     Terminates if stop_event is set.
     """
-    global RESULTS
+    global RESULTS , CAMERA
     RESULTS = {}  # Reset the RESULTS dictionary
     cap = cv2.VideoCapture(video_path)
 
@@ -366,13 +367,13 @@ def process_video(video_path, csv_file_path, fps, stop_event):
                 print(f"Results for frame {frame_number}: {results}")
 
                 # Create a dictionary for the CSV row with 'nan' if a class is not detected frameNumber
-                row = {"frameNumber": frame_number}
+                row = {}
                 for class_name in class_map.values():
                     detected = next((result for result in results if class_name in result), None)
                     if detected:
-                        row[class_name] = list(detected.values())[0]
+                        row[class_name] = (list(detected.values())[0] , CAMERA)
                     else:
-                        row[class_name] = 'nan'
+                        row[class_name] = ('nan',"Unidentified")
 
                 # Write the row to the CSV file
                 writer.writerow(row)
