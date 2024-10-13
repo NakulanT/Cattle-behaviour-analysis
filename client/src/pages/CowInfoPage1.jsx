@@ -93,12 +93,12 @@ const CowInfoPage1 = () => {
 
       <div className="grid grid-cols-12 grid-rows-2 gap-6 mb-6">
         {/* Line chart component */}
-        <div className="col-span-5 h-full">
+        <div className="col-span-5 ">
           <Linecharts data={data} loading={loading.chart} />
         </div>
 
         {/* Disease Bar chart */}
-        <div className="col-span-7 row-span-1 items-center bg-gray-800">
+        <div className="col-span-7  items-center bg-gray-800">
           <DiseaseBarChart cowId={cowId} date={selectedDate} />
         </div>
 
