@@ -21,8 +21,9 @@ const CowDataGrid = ({ date }) => {
         { field: 'standing', headerName: 'Standing (min)', flex: 1 },
         { field: 'eating', headerName: 'Eating (min)', flex: 1 },
         { field: 'lying', headerName: 'Lying (min)', flex: 1 },
-        { field: 'notRecognized', headerName: 'Not Recognized (min)', flex: 1 },
-    ];
+        { field: 'notRecognized', headerName: 'Not Recognized (min)', flex: 1 }, 
+        { field: 'Camera Field', headerName: 'Camera Field', flex: 1 } 
+       ];
 
     // Fetch data based on the selected date
     useEffect(() => {
@@ -48,6 +49,7 @@ const CowDataGrid = ({ date }) => {
                             eating: item['Eating Time (min)'],
                             lying: item['Lying Time (min)'],
                             notRecognized: item['Not Recognized Time (min)'],
+                            'Camera Field': item['Camera Field'] // Use quotes since there's a space in the key
                         }));
                         setCowBehaviorData(mappedData);
                         setError(null);
@@ -66,7 +68,7 @@ const CowDataGrid = ({ date }) => {
     return (
         <div className="container  bg-gray-800 text-gray-100 rounded-lg shadow-lg">
             <div className="text-2xl mx-auto font-bold mb-6 flex items-center gap-3">
-                <h1>fetchCowBehaviorData</h1>
+                <h1>Cattle Behavior Data</h1>
             </div>
             <ThemeProvider theme={darkTheme}>
                 <Box sx={{ height: 400, width: '100%' }}>

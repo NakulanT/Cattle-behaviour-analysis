@@ -6,12 +6,19 @@ from datetime import datetime, timedelta
 # Sample data for cows
 cows = [f'Cow_{i}' for i in range(1, 11)]
 
+# Define possible camera fields
+camera_fields = ['Field A', 'Field B', 'Field C']
+
 # Generate random weather conditions and temperature for Tamil Nadu
 def get_weather_data():
     conditions = ['Clear', 'Rainy', 'Cloudy', 'Sunny']
     temperature = random.uniform(25, 35)  # Range of temperatures in Tamil Nadu
     weather_condition = random.choice(conditions)
     return round(temperature, 1), weather_condition
+
+# Assign random camera field (Field A, B, C) to each cow
+def get_camera_field():
+    return random.choice(camera_fields)
 
 # Generate behavior data for each 15-minute interval
 def get_behavior_data(cow_id, not_recognized_intervals, current_interval):
@@ -85,6 +92,10 @@ while current_date <= end_date:
         for cow in cows:
             # Get the behavior data for each cow, including "Not Recognized" periods
             lying_time, standing_time, eating_time, not_recognized_time = get_behavior_data(cow, not_recognized_time_per_cow[cow], interval_num)
+            
+            # Get camera field
+            camera_field = get_camera_field()
+            
             daily_data.append({
                 'Date': current_time.strftime('%Y-%m-%d'),
                 'Time': current_time.strftime('%H:%M'),
@@ -94,7 +105,8 @@ while current_date <= end_date:
                 'Eating Time (min)': eating_time,  # Time in minutes
                 'Not Recognized (min)': not_recognized_time,  # Time in minutes
                 'Temperature (°C)': temperature,
-                'Weather Condition': weather_condition
+                'Weather Condition': weather_condition,
+                'Camera Field': camera_field  # Added camera field column
             })
         current_time += interval
 
@@ -109,4 +121,4 @@ while current_date <= end_date:
     # Move to the next day
     current_date += timedelta(days=1)
 
-print("Dataset created for 15-minute intervals, including 'Not Recognized' time, saved to daily CSV files!")
+print("Dataset created for 15-minute intervals, including 'Not Recognized' time and Camera Field, saved to daily CSV files!")

@@ -36,8 +36,8 @@ const FeedingFrequencyChart = ({ cowId, date, selectedPeriod }) => {
 
   return (
     <div className='h-full w-full'>
-      <h1 className='p-4 text-xl text-zinc-50'>
-        Feeding Frequency Chart
+      <h1 className="text-white text-2xl font-semibold m-2">
+      Feeding Frequency Analysis
       </h1>
 
       <ResponsiveContainer width="100%" height={400}>

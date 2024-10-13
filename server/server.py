@@ -35,10 +35,11 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["KMP_INIT_AT_FORK"] = "FALSE"
 
 # Set up YOLO models
-behaviour_model = YOLO(os.path.join("models", "behaviour_detection_model.pt"))
+# behaviour_model = YOLO(os.path.join("models", "behaviour_detection_model.pt"))
+behaviour_model = YOLO(os.path.join("models", "newly_trained_behaviour.pt"))
 shape_model = YOLO(os.path.join("models", "shape_detection_model.pt"))
 
-behaviours = {0: "Lying down", 1: "Eating", 2: "Standing"}
+behaviours = {0: "Lying down", 2: "Eating", 1: "Standing"}
 
 VIDEO_PATH = ''  # Initialize the video path as an empty string
 COORDINATES = {}
@@ -177,6 +178,7 @@ def process_image(image_path):
             
             # Define the bounding box coordinates
             x1, y1, x2, y2 = x_offset, y_offset, x_offset + detected_area.shape[1], y_offset + detected_area.shape[0]
+            print("hereeeee is behaviour class ID", behavior_class_id ,type(result))
             
             # Check if the bounding box is inside the defined zone
             if is_inside_coordinates(x1, y1, x2, y2, COORDINATES) :
@@ -189,7 +191,7 @@ def process_image(image_path):
                 behaviour_count["Eating"] += 1
                 
             elif shape_classes:
-                # Use the detected behavior if not inside the zone
+                # Use the detected behavior if not inside the zone csv
                 result_str = {class_map[shape_classes[0]]: behavior_name}
                 behaviour_count[behavior_name] += 1
             else:
@@ -199,6 +201,9 @@ def process_image(image_path):
             results.append(result_str)
     
     # Draw bounding boxes on the image
+    print("here it shows at draweing bouding box")
+    print(result)
+    print("end of the result")
     boxed_image_path = draw_bounding_boxes(result, image_path, COORDINATES)
     
     
@@ -280,8 +285,9 @@ VIDEO_PATH = ''
 COORDINATES = {}
 RESULTS = {}  # Global dictionary to store video processing results
 processing_thread = None  # Thread variable to handle video processing
-stop_event = threading.Event()  # Event to signal when to stop the current thread
+stop_event = threading.Event()  # Event to signal when to stop the current thread frame
 csv_file_path = ''  # Global variable to store the current CSV file path
+CAMERA = 'Field A'
 
 @app.route('/coordinates', methods=['POST'])
 def handle_coordinates():
@@ -332,7 +338,7 @@ def process_video(video_path, csv_file_path, fps, stop_event):
     Function to process the video and progressively write results to a CSV file in the background.
     Terminates if stop_event is set.
     """
-    global RESULTS
+    global RESULTS , CAMERA
     RESULTS = {}  # Reset the RESULTS dictionary
     cap = cv2.VideoCapture(video_path)
 
@@ -342,6 +348,7 @@ def process_video(video_path, csv_file_path, fps, stop_event):
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
 
+        count = 0
         while not stop_event.is_set():  # Continue processing unless stop_event is set
             ret, frame = cap.read()
             if not ret:
@@ -349,6 +356,7 @@ def process_video(video_path, csv_file_path, fps, stop_event):
             frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
             if frame_number % int(fps) == 0:  # Extract one frame per second
                 temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
+                count += 1
 
                 # Resize the frame to 640x640
                 resized_frame = cv2.resize(frame, (640, 640))
@@ -358,14 +366,14 @@ def process_video(video_path, csv_file_path, fps, stop_event):
                 results, boxed_image_path = process_image(temp_frame_path)
                 print(f"Results for frame {frame_number}: {results}")
 
-                # Create a dictionary for the CSV row with 'nan' if a class is not detected
+                # Create a dictionary for the CSV row with 'nan' if a class is not detected frameNumber
                 row = {}
                 for class_name in class_map.values():
                     detected = next((result for result in results if class_name in result), None)
                     if detected:
-                        row[class_name] = list(detected.values())[0]
+                        row[class_name] = (list(detected.values())[0] , CAMERA)
                     else:
-                        row[class_name] = 'nan'
+                        row[class_name] = ('nan',"Out of field")
 
                 # Write the row to the CSV file
                 writer.writerow(row)
@@ -374,7 +382,7 @@ def process_video(video_path, csv_file_path, fps, stop_event):
                 image_url = f"/cache/{os.path.basename(boxed_image_path)}"
 
                 # Add the frame number, results, and boxed image URL to the RESULTS dictionary
-                RESULTS[frame_number] = [row, {'frameNumber': frame_number, 'image_url': image_url}]
+                RESULTS[frame_number] = [row, {'frameNumber': frame_number, 'image_url': image_url , 'count': count}]
 
     cap.release()
     print(f"Stopped processing video at frame {frame_number}")
@@ -450,116 +458,6 @@ def zone_image():
     # Return the URL of the saved image
     return jsonify({"image_url": url_for('cached_image', filename=image_filename)})
 
-
-# RESULTS = {}  # Global dictionary to store video processing results
-
-# def process_video(video_path, csv_file_path, fps):
-#     """
-#     Function to process the video and progressively write results to a CSV file in the background.
-#     """
-#     global RESULTS
-#     RESULTS = {}  # Reset the RESULTS dictionary
-#     cap = cv2.VideoCapture(video_path)
-
-#     # Create the CSV file with headers based on class_map
-#     with open(csv_file_path, mode='w', newline='') as csv_file:
-#         fieldnames = ['frameNumber'] + list(class_map.values())
-#         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-#         writer.writeheader()
-
-#         while True:
-#             ret, frame = cap.read()
-#             if not ret:
-#                 break
-#             frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
-#             if frame_number % int(fps) == 0:  # Extract one frame per second
-#                 temp_frame_path = os.path.join(cache_dir, f"frame_{frame_number}.jpg")
-                
-#                 #resize the frame to 640x640
-#                 resized_frame = cv2.resize(frame, (640, 640))
-#                 cv2.imwrite(temp_frame_path, resized_frame)
-
-#                 # Process the frame and get the results
-#                 results, boxed_image_path = process_image(temp_frame_path)
-#                 # print(f"Results for frame {frame_number}: {results}")
-
-#                 # Create a dictionary for the CSV row with 'nan' if a class is not detected
-#                 row = {}
-#                 for class_name in class_map.values():
-#                     detected = next((result for result in results if class_name in result), None)
-#                     if detected:
-#                         row[class_name] = list(detected.values())[0]
-#                     else:
-#                         row[class_name] = 'nan'
-
-#                 # Write the row to the CSV file
-#                 writer.writerow(row)
-
-#                 # Construct the image URL manually using the base URL
-#                 image_url = f"/cache/{os.path.basename(boxed_image_path)}"
-
-#                 # Add the frame number, results, and boxed image URL to the RESULTS dictionary
-#                 RESULTS[frame_number] = [row, {'frameNumber': frame_number ,"image_url": image_url}]
-    
-#     cap.release()
-#     print(results)
-
-
-# @app.route('/zone_video', methods=['POST'])
-# def zone_video():
-#     """
-#     Handle the video upload, save it as 'uploaded_video' and replace it if it already exists.
-#     """
-#     global VIDEO_PATH
-#     print("Video upload request received")
-    
-#     if 'video' not in request.files:
-#         return {'error': "No video part in the request"}, 400
-    
-#     video_file = request.files['video']
-    
-#     if video_file.filename == '':
-#         return {'error': "No selected file"}, 400
-    
-#     video_path = os.path.join(cache_dir, video_file.filename)
-    
-#     # Save the uploaded video
-#     video_file.save(video_path)
-#     print("Video saved successfully at:", video_path)
-    
-#     if os.path.exists(video_path):
-#         VIDEO_PATH = video_path  # Update the global VIDEO_PATH
-#         print("Video path updated:", VIDEO_PATH)
-    
-#     cap = cv2.VideoCapture(video_path)
-#     fps = cap.get(cv2.CAP_PROP_FPS)
-#     cap.release()
-
-#     # Generate a CSV file name based on the current date
-#     current_date = datetime.now().strftime('%Y_%m_%d')
-#     csv_file_path = os.path.join(cache_dir, f'{current_date}.csv')
-#     print("CSV file will be saved at:", csv_file_path)
-
-#     # Process the video in a background thread
-#     threading.Thread(target=process_video, args=(video_path, csv_file_path, fps)).start()
-
-#     return {'message': "Video uploaded successfully. Processing started."}, 200
-
-
-# @app.route('/video_results', methods=['GET'])
-# def video_results():
-#     """
-#     Send the video processing results as JSON data.
-#     """
-#     global RESULTS
-
-#     # Check if the RESULTS global variable is populated
-#     if RESULTS:
-#         # Return the RESULTS as JSON data
-#         return jsonify(RESULTS)
-#     else:
-#         return {'error': 'Results not available or processing is still ongoing'}, 404
-
 @app.route('/zone_video', methods=['POST'])
 def zone_video():
     """
@@ -614,7 +512,7 @@ DATA_DIR = 'cattle_behavior_data/'
 @app.route('/get_cattle_behavior', methods=['GET'])
 def get_cattle_behavior():
     # Get the date argument from the request
-    date = request.args.get('date','2022-09-07')
+    date = request.args.get('date', '2022-09-07')
     
     if not date:
         return jsonify({"error": "Date parameter is required"}), 400
@@ -635,14 +533,21 @@ def get_cattle_behavior():
         ['Lying Time (min)', 'Standing Time (min)', 'Eating Time (min)', 'Not Recognized (min)']
     ].sum().reset_index()
 
+    # Find the most frequent Camera Field for each cow
+    camera_field = data.groupby('Cow ID')['Camera Field'].agg(lambda x: x.mode()[0]).reset_index()
+
+    # Merge the total behavior time and camera field data
+    total_behavior_time = total_behavior_time.merge(camera_field, on='Cow ID')
+
     # Rename columns for better readability
     total_behavior_time.columns = ['Cow ID', 'Lying Time (min)', 'Standing Time (min)', 
-                                   'Eating Time (min)', 'Not Recognized Time (min)']
+                                   'Eating Time (min)', 'Not Recognized Time (min)', 'Camera Field']
 
     # Convert the result to a dictionary for JSON response
     result = total_behavior_time.to_dict(orient='records')
-    
+
     return jsonify(result), 200
+
 
 # Helper function to convert minutes to hours for specified columns
 def convert_minutes_to_hours(df, time_cols):
@@ -940,22 +845,22 @@ def get_all_day_cow_details(cow_id):
                 # If the month is not already in the dictionary, initialize it
                 if month not in monthly_conditions:
                     monthly_conditions[month] = {
-                        "eating_less_than_5": 0,
-                        "eating_more_than_6": 0,
-                        "lying_less_than_8": 0,
-                        "lying_more_than_12": 0,
-                        "standing_less_than_4": 0,
-                        "standing_more_than_8": 0
+                        "Anorexia": 0,
+                        "Anxiety": 0,
+                        "Lameness": 0,
+                        "Postpartum Fatigue": 0,
+                        "Weakness or Fatigue": 0,
+                        "Heat Stress": 0
                     }
 
                 # Check the conditions and count the days for each condition
-                monthly_conditions[month]['eating_less_than_5'] += 1 if eating_time < 5 else 0
-                monthly_conditions[month]['eating_more_than_6'] += 1 if eating_time > 6 else 0
-                monthly_conditions[month]['lying_less_than_8'] += 1 if lying_time < 8 else 0
-                monthly_conditions[month]['lying_more_than_12'] += 1 if lying_time > 12 else 0
-                monthly_conditions[month]['standing_less_than_4'] += 1 if standing_time < 4 else 0
-                monthly_conditions[month]['standing_more_than_8'] += 1 if standing_time > 8 else 0
-
+                monthly_conditions[month]['Anorexia'] = 1 if eating_time < 4 else 0
+                monthly_conditions[month]['Anxiety'] = 1 if eating_time > 6 else 0
+                monthly_conditions[month]['Lameness'] = 1 if lying_time < 8 else 0
+                monthly_conditions[month]['Postpartum Fatigue'] = 1 if lying_time > 12 else 0
+                monthly_conditions[month]['Weakness or Fatigue'] = 1 if standing_time < 4 else 0
+                monthly_conditions[month]['Heat Stress'] = 1 if standing_time > 8 else 0
+        print(monthly_conditions)
         # Return only the monthly conditions as JSON for the past 12 months (365 days)
         return jsonify({
             "monthly_conditions": monthly_conditions  # Aggregated counts per month within the last 12 months
