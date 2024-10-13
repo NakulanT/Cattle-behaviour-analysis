@@ -287,7 +287,7 @@ RESULTS = {}  # Global dictionary to store video processing results
 processing_thread = None  # Thread variable to handle video processing
 stop_event = threading.Event()  # Event to signal when to stop the current thread frame
 csv_file_path = ''  # Global variable to store the current CSV file path
-CAMERA = 'camera 1'
+CAMERA = 'Field A'
 
 @app.route('/coordinates', methods=['POST'])
 def handle_coordinates():
@@ -373,7 +373,7 @@ def process_video(video_path, csv_file_path, fps, stop_event):
                     if detected:
                         row[class_name] = (list(detected.values())[0] , CAMERA)
                     else:
-                        row[class_name] = ('nan',"Unidentified")
+                        row[class_name] = ('nan',"Out of field")
 
                 # Write the row to the CSV file
                 writer.writerow(row)
