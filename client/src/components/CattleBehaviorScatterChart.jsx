@@ -74,27 +74,30 @@ const CustomTooltip = ({ active, payload }) => {
         }}
       >
         <p>{`Cow ID: ${cow.cowNumber}`}</p>
-        {/* <p>{`Lying Time: ${cow.x} hours`}</p>
-        <p>{`Eating Time: ${cow.y} hours`}</p> */}
       </div>
     );
   }
-
   return null;
 };
 
-// Create a dark theme using MUI
+// Create a dark theme and light theme using MUI
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
   },
 });
 
-export default function CattleBehaviorScatterChart() {
+const lightTheme = createTheme({
+  palette: {
+    mode: 'light',
+  },
+});
+
+export default function CattleBehaviorScatterChart({ isLightTheme }) {
   const scatterData = prepareData();
 
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={isLightTheme ? lightTheme : darkTheme}>
       <Box
         sx={{
           display: 'flex',
@@ -105,16 +108,16 @@ export default function CattleBehaviorScatterChart() {
           bgcolor: 'background.default',
           p: 4,
           borderRadius: '8px',
-          backgroundColor:'#1f2937'
+          backgroundColor: isLightTheme ? '#f1f2f4' : '#1f2937', // Change background color based on theme
         }}
       >
-        <Paper elevation={3} sx={{ width: '100%', p: 2, bgcolor: '#1f2937' }}>
-          <Typography variant="h6" color="white" align="center" gutterBottom>
+        <Paper elevation={3} sx={{ width: '100%', p: 2, bgcolor: isLightTheme ? '#f1f2f4' : '#1f2937' }}>
+          <Typography variant="h6" color={isLightTheme ? 'black' : 'white'} align="center" gutterBottom>
             Cattle Behavior Scatter Chart
           </Typography>
           <ResponsiveContainer width="100%" height={400}>
             <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-              <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+              <CartesianGrid stroke={isLightTheme ? "#ccc" : "#444"} strokeDasharray="3 3" />
               <XAxis
                 type="number"
                 dataKey="x"
@@ -123,10 +126,10 @@ export default function CattleBehaviorScatterChart() {
                   value: 'Lying Time (hours)',
                   position: 'insideBottom',
                   offset: -5,
-                  fill: '#FFFFFF',
+                  fill: isLightTheme ? '#000000' : '#FFFFFF',
                 }}
-                stroke="#FFFFFF"
-                tick={{ fill: '#FFFFFF' }}
+                stroke={isLightTheme ? '#000000' : '#FFFFFF'}
+                tick={{ fill: isLightTheme ? '#000000' : '#FFFFFF' }}
               />
               <YAxis
                 type="number"
@@ -136,10 +139,10 @@ export default function CattleBehaviorScatterChart() {
                   value: 'Eating Time (hours)',
                   angle: -90,
                   position: 'insideLeft',
-                  fill: '#FFFFFF',
+                  fill: isLightTheme ? '#000000' : '#FFFFFF',
                 }}
-                stroke="#FFFFFF"
-                tick={{ fill: '#FFFFFF' }}
+                stroke={isLightTheme ? '#000000' : '#FFFFFF'}
+                tick={{ fill: isLightTheme ? '#000000' : '#FFFFFF' }}
               />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
 

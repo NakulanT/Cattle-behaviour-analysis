@@ -4,7 +4,7 @@ import random
 from datetime import datetime, timedelta
 
 # Sample data for cows
-cows = [f'Cow_{i}' for i in range(1, 11)]
+cows = [f'Cow_{i}' for i in range(1, 501)]
 
 # Define possible camera fields
 camera_fields = ['Field A', 'Field B', 'Field C']
@@ -12,113 +12,104 @@ camera_fields = ['Field A', 'Field B', 'Field C']
 # Generate random weather conditions and temperature for Tamil Nadu
 def get_weather_data():
     conditions = ['Clear', 'Rainy', 'Cloudy', 'Sunny']
-    temperature = random.uniform(25, 35)  # Range of temperatures in Tamil Nadu
-    weather_condition = random.choice(conditions)
+    temperature = random.uniform(23, 37)  # Wider temperature range
+    weather_condition = random.choices(conditions, weights=[0.5, 0.2, 0.2, 0.1])[0]
     return round(temperature, 1), weather_condition
 
-# Assign random camera field (Field A, B, C) to each cow
+# Assign random camera field
 def get_camera_field():
     return random.choice(camera_fields)
 
-# Generate behavior data for each 15-minute interval
-def get_behavior_data(cow_id, not_recognized_intervals, current_interval):
+# Generate behavior data with more randomness for random cows
+def get_behavior_data(cow_id, not_recognized_intervals, current_interval, special_cows):
     if current_interval in not_recognized_intervals:
-        # If this interval is "Not Recognized"
-        not_recognized_time = 15  # The entire interval is "Not Recognized"
-        lying_time = standing_time = eating_time = 0  # No other behavior during this time
+        not_recognized_time = 15
+        lying_time = standing_time = eating_time = 0
     else:
-        not_recognized_time = 0  # Not "Not Recognized" during this interval
-        
-        # Determine eating time based on cow conditions
-        if cow_id in ['Cow_1', 'Cow_3']:
-            # Cow 1 and Cow 3 rarely eat less than 1-3 hours
-            if random.random() < 0.002:  # 20% chance for rare eating pattern
-                eating_time = random.randint(1, 3)  # Eating 1-3 mins
-            else:
-                eating_time = random.randint(4, 6)  # Eating 4-6 mins
+        not_recognized_time = 0
+        if cow_id in special_cows:
+            # More variability for special cows
+            eating_time = random.randint(2, 10)
+            lying_time = random.randint(5, 15)
+            standing_time = random.randint(3, 12)
         else:
-            eating_time = random.randint(4, 6)  # Normal eating 4-6 mins
+            # Regular cows with a standard range
+            eating_time = random.randint(3, 8)
+            lying_time = random.randint(5, 14)
+            standing_time = random.randint(3, 10)
 
-        # Determine lying time
-        if cow_id == 'Cow_4' and random.random() < 0.002:  # 20% chance for Cow 4 to lie down 12-16 hours
-            lying_time = random.randint(12, 15)  # Lying down 12-16 mins
-        else:
-            lying_time = random.randint(8, 12)  # Normal lying down 8-12 mins
-
-        # Determine standing time
-        if random.random() < 0.001:  # 5% chance for any cow to stand 8-16 mins
-            standing_time = random.randint(8, 15)  # Standing 8-16 mins
-        else:
-            standing_time = random.randint(4, 8)  # Normal standing 4-8 mins
-
-        # Ensure the total time doesn't exceed 15 mins
+        # Ensure the total does not exceed 15 minutes
         total_time = lying_time + standing_time + eating_time
         if total_time > 15:
-            # Normalize times if they exceed the 15-minute interval
-            standing_time = max(standing_time - (total_time - 15), 0)
+            overflow = total_time - 15
+            adjust_choice = random.choice(['lying', 'standing', 'eating'])
+            if adjust_choice == 'lying':
+                lying_time = max(lying_time - overflow, 0)
+            elif adjust_choice == 'standing':
+                standing_time = max(standing_time - overflow, 0)
+            else:
+                eating_time = max(eating_time - overflow, 0)
+        elif total_time < 15:
+            adjustment = 15 - total_time
+            adjust_choice = random.choice(['lying', 'standing', 'eating'])
+            if adjust_choice == 'lying':
+                lying_time += adjustment
+            elif adjust_choice == 'standing':
+                standing_time += adjustment
+            else:
+                eating_time += adjustment
 
-    # Ensure the total of all times equals 15 minutes
-    total_time = lying_time + standing_time + eating_time + not_recognized_time
-    if total_time != 15:
-        adjustment = 15 - total_time
-        standing_time = max(standing_time + adjustment, 0)  # Adjust standing time to balance
-
-    return lying_time, standing_time, eating_time, not_recognized_time  # Return times within 15-minute intervals
+    return lying_time, standing_time, eating_time, not_recognized_time
 
 # Create directory to save the CSV files
 output_dir = 'cattle_behavior_data'
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-# Adjusted start and end dates for three years of past data
-end_date = datetime(2024, 9, 6)  # End date (current day in 2024)
-start_date = end_date - timedelta(days=3*365)  # Start date (three years back from the end date)
+# Start and end dates
+end_date = datetime(2024, 9, 6)
+start_date = end_date - timedelta(days=3*365)
 
-# Generate data for every 15-minute interval
+# Generate data
 interval = timedelta(minutes=15)
 current_date = start_date
 
 while current_date <= end_date:
-    daily_data = []  # Store data for a single day
+    daily_data = []
     current_time = current_date
-    
-    # Assign 1-2 hours of "Not Recognized" time for each cow (equivalent to 4-8 intervals)
     not_recognized_time_per_cow = {
-        cow: random.sample(range(96), random.randint(4, 8)) for cow in cows  # 4-8 intervals out of 96 per day
+        cow: random.sample(range(96), random.randint(4, 8)) for cow in cows
     }
     
-    for interval_num in range(96):  # 96 intervals in a day (24 hours / 15-minute intervals)
+    # Select random cows for special behavior on the current day
+    special_cows = random.sample(cows, random.randint(20, 50))  # 20-50 random cows with altered behavior
+    
+    for interval_num in range(96):
         temperature, weather_condition = get_weather_data()
         for cow in cows:
-            # Get the behavior data for each cow, including "Not Recognized" periods
-            lying_time, standing_time, eating_time, not_recognized_time = get_behavior_data(cow, not_recognized_time_per_cow[cow], interval_num)
-            
-            # Get camera field
+            # Get behavior data for each cow
+            lying_time, standing_time, eating_time, not_recognized_time = get_behavior_data(cow, not_recognized_time_per_cow[cow], interval_num, special_cows)
             camera_field = get_camera_field()
             
             daily_data.append({
                 'Date': current_time.strftime('%Y-%m-%d'),
                 'Time': current_time.strftime('%H:%M'),
                 'Cow ID': cow,
-                'Lying Time (min)': lying_time,  # Time in minutes
-                'Standing Time (min)': standing_time,  # Time in minutes
-                'Eating Time (min)': eating_time,  # Time in minutes
-                'Not Recognized (min)': not_recognized_time,  # Time in minutes
+                'Lying Time (min)': lying_time,
+                'Standing Time (min)': standing_time,
+                'Eating Time (min)': eating_time,
+                'Not Recognized (min)': not_recognized_time,
                 'Temperature (°C)': temperature,
                 'Weather Condition': weather_condition,
-                'Camera Field': camera_field  # Added camera field column
+                'Camera Field': camera_field
             })
         current_time += interval
 
-    # Convert daily data into a pandas DataFrame
     df = pd.DataFrame(daily_data)
-
-    # Save the data to a CSV file named by the date
     file_name = f"{current_date.strftime('%Y-%m-%d')}.csv"
     file_path = os.path.join(output_dir, file_name)
     df.to_csv(file_path, index=False)
 
-    # Move to the next day
     current_date += timedelta(days=1)
 
-print("Dataset created for 15-minute intervals, including 'Not Recognized' time and Camera Field, saved to daily CSV files!")
+print("Dataset created with enhanced randomness for selected cows, saved to daily CSV files!")

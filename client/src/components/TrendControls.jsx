@@ -23,10 +23,29 @@ const darkTheme = createTheme({
   },
 });
 
-const TrendControls = ({ trendType, setTrendType, date, setDate }) => {
+// Custom light theme for MUI
+const lightTheme = createTheme({
+  palette: {
+    mode: 'light',
+    background: {
+      paper: '#ffffff', // Light background for the card
+      default: '#f5f5f5', // Lighter background for the entire page
+    },
+    text: {
+      primary: '#000000', // Dark text
+    },
+    info: {
+      main: '#1976d2', // Default primary color
+    },
+  },
+});
+
+const TrendControls = ({ trendType, setTrendType, date, setDate, isLightTheme }) => {
   const [selectedValue, setSelectedValue] = useState(dayjs(date));
   const [trend, setTrend] = useState(trendType);
 
+
+  
   const onSelectDate = (newValue) => {
     setSelectedValue(newValue);
     setDate(newValue.format('YYYY-MM-DD'));
@@ -39,18 +58,18 @@ const TrendControls = ({ trendType, setTrendType, date, setDate }) => {
   };
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <div className="p-4 rounded-lg shadow-lg flex">
+    <ThemeProvider theme={isLightTheme ? lightTheme : darkTheme}>
+      <div className="p-4  flex" style={{ backgroundColor: 'background.paper' }}>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <Grid container spacing={2} alignItems="center">
             {/* Date Picker */}
             <Grid item>
-              <div className=" p-2 rounded-lg">
+              <div className="p-2 rounded-lg">
                 <DatePicker
                   label="Select Date"
                   value={selectedValue}
                   onChange={onSelectDate}
-                  renderInput={(params) => <TextField {...params} />}
+                  renderInput={(params) => <TextField {...params} variant="outlined" />}
                 />
               </div>
             </Grid>
@@ -63,8 +82,7 @@ const TrendControls = ({ trendType, setTrendType, date, setDate }) => {
                 value={trend}
                 onChange={onSelectTrend}
                 variant="outlined"
-                sx={{ width: '250px' }} // Set the width to 50px
-                className=""
+                sx={{ width: '250px' }}
               >
                 <MenuItem value="daily">Daily</MenuItem>
                 <MenuItem value="weekly">Weekly</MenuItem>

@@ -1,4 +1,54 @@
+/* styles.css */
+
+/* General Styles */
 body {
-    font-family: 'Roboto', sans-serif; /* Replace 'Roboto' with your chosen font */
-  }
-  
+  font-family: 'Roboto', sans-serif; /* Replace 'Roboto' with your chosen font */
+}
+
+/* Light Theme */
+.light-theme {
+  background-color: #f9f9f9; /* Light background */
+  color: #333; /* Dark text */
+}
+
+.light-theme .bg-gray-800 {
+  background-color: #f3f4f6; /* Light gray background for specific elements */
+}
+
+.light-theme .text-gray-300 {
+  color: #4b5563; /* Updated: Medium gray for less prominent text */
+}
+
+.light-theme .text-gray-700 {
+  color: #374151; /* Darker gray for headings or important text */
+}
+
+.light-theme .text-gray-900 {
+  color: #1f2937; /* Darkest gray for primary text */
+}
+
+/* Dark Theme */
+.dark-theme {
+  background-color: #1f2937; /* Dark background */
+  color: #f9f9f9; /* Light text */
+}
+
+.dark-theme .bg-gray-800 {
+  background-color: #374151; /* Darker gray background for specific elements */
+}
+
+.dark-theme .text-gray-300 {
+  color: #e5e7eb; /* Lighter text for dark theme */
+}
+
+.dark-theme .text-gray-500 {
+  color: #9ca3af; /* Updated: Medium gray for less prominent text */
+}
+
+.dark-theme .text-gray-700 {
+  color: #d1d5db; /* Light gray for headings or important text */
+}
+
+.dark-theme .text-gray-100 {
+  color: #f3f4f6; /* Very light gray for primary text */
+}

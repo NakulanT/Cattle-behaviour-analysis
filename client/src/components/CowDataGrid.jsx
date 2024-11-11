@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid'; // Updated import
-import { Box, createTheme, ThemeProvider } from '@mui/material';
+import { Box, createTheme, ThemeProvider, Typography } from '@mui/material';
 import axios from 'axios';
 
-// Create a dark theme
+// Create themes
 const darkTheme = createTheme({
     palette: {
         mode: 'dark',
     },
 });
 
-const CowDataGrid = ({ date }) => {
+const lightTheme = createTheme({
+    palette: {
+        mode: 'light',
+    },
+});
+
+const CowDataGrid = ({ date, isLightTheme }) => {
     const [cowBehaviorData, setCowBehaviorData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -23,7 +29,7 @@ const CowDataGrid = ({ date }) => {
         { field: 'lying', headerName: 'Lying (min)', flex: 1 },
         { field: 'notRecognized', headerName: 'Not Recognized (min)', flex: 1 }, 
         { field: 'Camera Field', headerName: 'Camera Field', flex: 1 } 
-       ];
+    ];
 
     // Fetch data based on the selected date
     useEffect(() => {
@@ -66,11 +72,19 @@ const CowDataGrid = ({ date }) => {
     }, [date]);
 
     return (
-        <div className="container  bg-gray-800 text-gray-100 rounded-lg shadow-lg">
-            <div className="text-2xl mx-auto font-bold mb-6 flex items-center gap-3">
-                <h1>Cattle Behavior Data</h1>
-            </div>
-            <ThemeProvider theme={darkTheme}>
+        <div className={`container ${isLightTheme ? 'bg-gray-200' : 'bg-gray-900'} text-gray-100 `}>
+            <Typography 
+                variant="h5" 
+                component="div" 
+                gutterBottom
+                sx={{ color: isLightTheme ? '#000000' : '#ffffff', textAlign: 'center', margin: '0' }}
+            >
+                <h2 className={isLightTheme ? 'bg-gray-200 p-4' : 'bg-gray-800 p-4 ' } >
+
+                    Cattle Behavior Data
+                </h2>
+            </Typography>
+            <ThemeProvider theme={isLightTheme ? lightTheme : darkTheme}>
                 <Box sx={{ height: 400, width: '100%' }}>
                     {error ? (
                         <div style={{ color: 'red', textAlign: 'center' }}>{error}</div>
@@ -83,14 +97,14 @@ const CowDataGrid = ({ date }) => {
                             loading={loading}
                             sx={{
                                 '& .MuiDataGrid-cell': {
-                                    color: 'white', // Text color for cells
+                                    color: isLightTheme ? '#000' : 'white', // Text color for cells based on theme
                                 },
                                 '& .MuiDataGrid-columnHeader': {
-                                    backgroundColor: '#374151', // Header background color
-                                    color: 'white', // Header text color
+                                    backgroundColor: isLightTheme ? '#e0e0e0' : '#324773', // Header background color based on theme
+                                    color: isLightTheme ? '#000' : 'white', // Header text color based on theme
                                 },
                                 '& .MuiDataGrid-footerContainer': {
-                                    backgroundColor: '#374151', // Footer background color
+                                    backgroundColor: isLightTheme ? '#e0e0e0' : '#324773', // Footer background color based on theme
                                 },
                             }}
                         />

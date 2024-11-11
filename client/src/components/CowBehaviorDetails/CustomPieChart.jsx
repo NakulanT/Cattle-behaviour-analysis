@@ -10,7 +10,7 @@ const data = [
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28']; // Color for each segment
 
-const CustomPieChart = () => {
+const CustomPieChart = ({ isLightTheme }) => {
   return (
     <Box 
       sx={{ 
@@ -20,12 +20,17 @@ const CustomPieChart = () => {
         flexDirection: 'column', 
         alignItems: 'center', 
         justifyContent: 'center',
-        bgcolor: '#1f2937', 
+        bgcolor: isLightTheme ? '#f1f2f4' : '#1f2937', // Background color based on theme
         p: 3, 
-        borderRadius: 2 
+        borderRadius: 2, 
       }}
     >
-      <Typography className='text-white' variant="h5" component="div" gutterBottom>
+      <Typography 
+        variant="h5" 
+        component="div" 
+        gutterBottom
+        sx={{ color: isLightTheme ? '#000000' : '#ffffff' }} // Text color based on theme
+      >
         Cattle Behavior Distribution
       </Typography>
 
@@ -37,7 +42,7 @@ const CustomPieChart = () => {
             cx="50%"
             cy="50%"
             outerRadius={100}
-            fill="#1f2937"
+            fill={isLightTheme ? '#f5f5f5' : '#1f2937'} // Fill color based on theme
             dataKey="value"
             label
           >

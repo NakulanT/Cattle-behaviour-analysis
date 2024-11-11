@@ -6,34 +6,33 @@ import { helix } from 'ldrs';
 helix.register();
 
 const DiseaseBarChart = ({ cowId, date }) => {
-  const [monthlyConditions, setMonthlyConditions] = useState([]); // Ensure initial value is an empty array
-  const [loading, setLoading] = useState(true); // Loading state
-  const [error, setError] = useState(null); // Error handling
+  const [monthlyConditions, setMonthlyConditions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showDescription, setShowDescription] = useState(false);
+  const [descriptionTimeout, setDescriptionTimeout] = useState(null);
 
   const fetchCowData = async (endDate) => {
     try {
       const response = await axios.get(`http://127.0.0.1:5000/cow_all_data/${cowId}`, {
         params: {
-          end_date: endDate, // Send only the end date (YYYY-MM)
+          end_date: endDate,
         },
       });
 
       const newData = response.data.monthly_conditions;
 
-      // Check if the data exists and is an array
       if (!newData || Object.keys(newData).length === 0) {
         throw new Error('No data available');
       }
 
-      // Transform object to array and slice the first 12 entries
       const transformedData = Object.entries(newData)
         .map(([key, value]) => ({
           name: key,
           ...value,
         }))
-        .slice(0, 12); // Only get the first 12 items
+        .slice(0, 12);
 
-      // Set the data into state
       setMonthlyConditions(transformedData);
       setLoading(false);
     } catch (error) {
@@ -42,16 +41,25 @@ const DiseaseBarChart = ({ cowId, date }) => {
     }
   };
 
-  // Initial loading of the latest 12 months of data using the date passed from props
   useEffect(() => {
     const dateObject = new Date(date);
     const formattedDate = `${dateObject.getFullYear()}-${String(dateObject.getMonth() + 1).padStart(2, '0')}`;
-    
-    // const endDate = date.toISOString().slice(0, 7); // Use the date prop and format it to YYYY-MM
-    const endDate = formattedDate; // Use the date prop and format it to YYYY-MM
-    
-    fetchCowData(endDate); // Fetch data for the passed date and the last 12 months
+    const endDate = formattedDate;
+
+    fetchCowData(endDate);
   }, [cowId, date]);
+
+  const handleMouseEnter = () => {
+    const timeout = setTimeout(() => {
+      setShowDescription(true);
+    }, 1000);
+    setDescriptionTimeout(timeout);
+  };
+
+  const handleMouseLeave = () => {
+    setShowDescription(false);
+    clearTimeout(descriptionTimeout);
+  };
 
   if (loading) {
     return (
@@ -66,30 +74,42 @@ const DiseaseBarChart = ({ cowId, date }) => {
     return <div>Error: {error}</div>;
   }
 
-  // Check if the data exists before rendering
   if (!monthlyConditions || monthlyConditions.length === 0) {
     return <div>No data available</div>;
   }
 
   return (
-    <div className="bg-gray-800 p-4 h-full rounded-lg">
-      <ResponsiveContainer>
-        <BarChart data={monthlyConditions} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-          <XAxis dataKey="name" tick={{ fill: 'white' }} tickLine={{ stroke: '#444' }} />
-          <YAxis tick={{ fill: 'white' }} tickLine={{ stroke: '#444' }} axisLine={{ stroke: '#444' }} />
-          <Tooltip contentStyle={{ backgroundColor: '#333', color: 'white' }} />
-          <Legend wrapperStyle={{ color: 'white' }} />
+    <div
+      className="w-full h-[450px] bg-gray-800 p-2 rounded-lg relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <h2 className="text-white text-2xl font-semibold mb-2">Disease Status Overview</h2>
+      <div className="bg-gray-800 h-full rounded-lg">
+        {/* Absolute positioning for the description */}
+        {showDescription && (
+          <p className="text-gray-300 bg-slate-100 mb-2 absolute top-0 left-0 p-4">
+            An overview of any diseases affecting the cow, displayed in a bar chart format.
+          </p>
+        )}
+        <ResponsiveContainer>
+          <BarChart data={monthlyConditions} margin={{ top: 20, right: 30, bottom: 5, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+            <XAxis dataKey="name" tick={{ fill: 'white' }} tickLine={{ stroke: '#444' }} />
+            <YAxis tick={{ fill: 'white' }} tickLine={{ stroke: '#444' }} axisLine={{ stroke: '#444' }} />
+            <Tooltip contentStyle={{ backgroundColor: '#333', color: 'white' }} />
+            <Legend wrapperStyle={{ color: 'white' }} />
 
-          {/* Stack the bars with the condition data */}
-          <Bar dataKey="eating_less_than_5" stackId="a" fill="#FFB6C1" name="Eating < 3h" />
-          <Bar dataKey="eating_more_than_6" stackId="a" fill="#ADD8E6" name="Eating > 6h" />
-          <Bar dataKey="lying_less_than_8" stackId="a" fill="#FFD700" name="Lying < 8h" />
-          <Bar dataKey="lying_more_than_12" stackId="a" fill="#98FB98" name="Lying > 12h" />
-          <Bar dataKey="standing_less_than_4" stackId="a" fill="#FF6347" name="Standing < 4h" />
-          <Bar dataKey="standing_more_than_8" stackId="a" fill="#00BFFF" name="Standing > 8h" />
-        </BarChart>
-      </ResponsiveContainer>
+            {/* Stack the bars with the condition data */}
+            <Bar dataKey="eating_less_than_5" stackId="a" fill="#FFB6C1" name="Eating < 3h" />
+            <Bar dataKey="eating_more_than_6" stackId="a" fill="#ADD8E6" name="Eating > 6h" />
+            <Bar dataKey="lying_less_than_8" stackId="a" fill="#FFD700" name="Lying < 8h" />
+            <Bar dataKey="lying_more_than_12" stackId="a" fill="#98FB98" name="Lying > 12h" />
+            <Bar dataKey="standing_less_than_4" stackId="a" fill="#FF6347" name="Standing < 4h" />
+            <Bar dataKey="standing_more_than_8" stackId="a" fill="#00BFFF" name="Standing > 8h" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };
