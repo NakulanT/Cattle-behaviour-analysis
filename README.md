@@ -18,7 +18,7 @@ Traditional cattle monitoring methods such as manual observation and electronic 
 - Material-UI for UI components
 
 ### **Backend:**
-- FastAPI (Python v3.11.6)
+- FLASK 
 - YOLOv8 for object detection
 - Pandas for data processing
 
